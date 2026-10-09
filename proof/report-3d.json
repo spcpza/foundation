@@ -1,0 +1,79 @@
+{
+  "firstLoadBytes": 439398,
+  "requests": [
+    {
+      "url": "/",
+      "mime": "text/html",
+      "bytes": 3553
+    },
+    {
+      "url": "/style.css",
+      "mime": "text/css",
+      "bytes": 2915
+    },
+    {
+      "url": "/img/painting-full.avif",
+      "mime": "image/avif",
+      "bytes": 92039
+    },
+    {
+      "url": "/app.js",
+      "mime": "text/javascript",
+      "bytes": 10251
+    },
+    {
+      "url": "/drone.js",
+      "mime": "text/javascript",
+      "bytes": 15493
+    },
+    {
+      "url": "/img/painting-3d.avif",
+      "mime": "image/avif",
+      "bytes": 179593
+    },
+    {
+      "url": "/img/bg.avif",
+      "mime": "image/avif",
+      "bytes": 17210
+    },
+    {
+      "url": "/img/depth.webp",
+      "mime": "image/webp",
+      "bytes": 118344
+    }
+  ],
+  "fps_swiftshader_dpr3": {
+    "fps": 13.2,
+    "medianMs": 66.7,
+    "p95Ms": 150
+  },
+  "fps_swiftshader_dpr3_cpu4x": {
+    "fps": 13.5,
+    "medianMs": 66.7,
+    "p95Ms": 133.3
+  },
+  "loopSeconds": 36,
+  "waypoints": [
+    0,
+    2.68,
+    5.17,
+    6.99,
+    9.59,
+    12.19,
+    15.84,
+    19.92,
+    22.71,
+    25.48,
+    29.5,
+    30.96,
+    33.91
+  ],
+  "reducedMotion": {
+    "droneLoaded": false
+  },
+  "noWebGL": {
+    "droneCanvas": false,
+    "pageErrors": []
+  },
+  "errors": []
+}

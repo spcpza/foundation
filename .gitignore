@@ -1,0 +1,5 @@
+node_modules/
+.venv/
+tools/models/
+src/*.npy
+src/*-x2.png
