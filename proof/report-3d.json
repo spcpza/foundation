@@ -43,14 +43,14 @@
     }
   ],
   "fps_swiftshader_dpr3": {
-    "fps": 10,
-    "medianMs": 99.9,
-    "p95Ms": 183.4
+    "fps": 8.8,
+    "medianMs": 100,
+    "p95Ms": 216.7
   },
   "fps_swiftshader_dpr3_cpu4x": {
-    "fps": 8.3,
-    "medianMs": 116.7,
-    "p95Ms": 250
+    "fps": 8.6,
+    "medianMs": 100.1,
+    "p95Ms": 266.6
   },
   "loopSeconds": 32,
   "waypoints": [
