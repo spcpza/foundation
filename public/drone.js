@@ -1,34 +1,39 @@
-/* solichin.org: 2.5D "drone" fly-through.
+/* solichin.org: 2.5D FPV drone fly-through.
    The painting becomes a relief: a dense mesh displaced by a depth map (Depth Anything V2),
    with an inpainted far layer behind it so gaps at depth edges show background, not smears.
-   A perspective camera flies a closed spline through Fred's path (dolly, orbit, altitude, roll).
-   Plain WebGL 1, no libraries. If anything fails, the 2D pan in app.js keeps running. */
+   Camera flies Fred's FPV path (wide → God OTS → through the light → Adam OTS → low → cherubs → wide).
+   Additive fingertip glow + cheap 5-tap DOF. Plain WebGL 1, no libraries.
+   If anything fails, the 2D pan in app.js keeps running. */
 (function () {
   'use strict';
   var cam2d = window.__camera; if (!cam2d) return;
   var ASSET = '/img/';
-  var DZ = 0.28;               // relief depth (painting is 2 units tall)
-  var LOOP = 36;               // seconds per loop
-  var FOV = 46 * Math.PI / 180;
+  var DZ = 0.30;               // relief depth (painting is 2 units tall)
+  var LOOP = 32;               // seconds per loop (matches reference/fpv-preview)
+  var FOV = 52 * Math.PI / 180; // wider for FPV immersion
   var EDGE = 0.05;             // depth mismatch (0..1) at which the relief is torn open
-  var MARGIN = 0.15;           // mesh extends past the frame (clamped texture) so orbits never see void
+  var MARGIN = 0.12;           // mesh extends past the frame (clamped texture) so orbits never see void
+  var DOF = 0.85;              // shallow-focus strength (5-tap blur; auto-off if frames stay slow)
+  // Fingertip light in painting UV (kept as its own additive sprite so depth tears don't snuff it)
+  var GLOW = { u: 0.345, v: 0.435, size: 0.18, zLift: 0.022 };
 
-  // Fred's path. u,v = point looked at on the painting (0..1), d = distance,
-  // yaw/pitch = where the drone sits around that point (degrees), roll = bank.
+  // FPV path (from C preview stills + Fred's route). u,v = look-at on the painting (0..1),
+  // d = distance, yaw/pitch = drone seat around that point (degrees), roll = bank.
+  // Stay inset and avoid looking "through" the relief from behind — that stretches the mesh.
   var KEYS = [
-    { u: 0.30, v: 0.20, d: 1.00, yaw:  -7, pitch:   5, roll: -2 },  // close on God's face
-    { u: 0.24, v: 0.32, d: 1.15, yaw: -11, pitch:   2, roll: -4 },  // curve down his shoulder and forearm
-    { u: 0.32, v: 0.41, d: 0.88, yaw:  -7, pitch:   1, roll: -2 },  // to his fingertip...
-    { u: 0.34, v: 0.43, d: 0.82, yaw:   7, pitch:  -3, roll:  3 },  // ...gently orbit the light
-    { u: 0.48, v: 0.52, d: 1.05, yaw:  10, pitch:  -4, roll:  4 },  // follow Adam's arm down-right
-    { u: 0.70, v: 0.61, d: 0.92, yaw:   9, pitch:  -2, roll:  2 },  // Adam's face
-    { u: 0.58, v: 0.74, d: 1.20, yaw:   5, pitch: -10, roll: -2 },  // drop low under his body
-    { u: 0.30, v: 0.70, d: 1.20, yaw:  -9, pitch:  -8, roll: -5 },  // sweep low past the lake
-    { u: 0.24, v: 0.58, d: 1.15, yaw: -10, pitch:   0, roll: -4 },  // climb the left side
-    { u: 0.36, v: 0.47, d: 0.95, yaw:  -3, pitch:   3, roll:  1 },  // rise back to the light
-    { u: 0.64, v: 0.36, d: 1.00, yaw:   9, pitch:   5, roll:  4 },  // up through the cherubs
-    { u: 0.68, v: 0.27, d: 1.05, yaw:   8, pitch:   5, roll:  3 },
-    { u: 0.42, v: 0.22, d: 1.12, yaw:   2, pitch:   2, roll:  0 }   // arc over the top, back to God
+    { u: 0.42, v: 0.44, d: 1.90, yaw:   0, pitch:   0, roll:  0 },  // 0s  wide hover — full scene
+    { u: 0.30, v: 0.20, d: 1.20, yaw:  -8, pitch:   5, roll: -2 },  // 3s  push in to God's face
+    { u: 0.27, v: 0.34, d: 0.82, yaw: -24, pitch:   2, roll: -7 },  // 6s  OTS God — down the arm
+    { u: 0.34, v: 0.43, d: 0.52, yaw:  -4, pitch:  -1, roll:  2 },  // 8s  through the light (closest)
+    { u: 0.42, v: 0.48, d: 0.72, yaw:  18, pitch:   2, roll:  5 },  // 10s past the spark, glance Adam-side
+    { u: 0.55, v: 0.54, d: 0.88, yaw:  20, pitch:  -4, roll:  5 },  // 13s along Adam's arm
+    { u: 0.70, v: 0.61, d: 0.78, yaw:  22, pitch:  -2, roll:  4 },  // 16s OTS Adam's face
+    { u: 0.58, v: 0.78, d: 1.18, yaw:   8, pitch: -14, roll: -3 },  // 19s low over body / lake
+    { u: 0.36, v: 0.58, d: 1.30, yaw:  -8, pitch:  -6, roll: -4 },  // 22s pull back, hands in frame
+    { u: 0.36, v: 0.45, d: 1.00, yaw:  -2, pitch:   1, roll:  1 },  // 24s rise toward the light
+    { u: 0.62, v: 0.34, d: 1.15, yaw:  12, pitch:   5, roll:  4 },  // 26s cherubs
+    { u: 0.50, v: 0.30, d: 1.45, yaw:   4, pitch:   2, roll:  1 },  // 29s pull out
+    { u: 0.44, v: 0.40, d: 1.78, yaw:   1, pitch:   0, roll:  0 }   // 31s ease to wide (seam)
   ];
 
   var stage = document.getElementById('stage');
@@ -41,13 +46,11 @@
   var gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance' });
   if (!gl) return;
   var uintOK = !!gl.getExtension('OES_element_index_uint');
-
   function pick(base) {
     var c = document.createElement('canvas');
     if (c.toDataURL('image/webp').indexOf('image/webp') === 5) return base + '.webp';
     return base + '.jpg';
   }
-  // AVIF is best but cannot be feature-tested synchronously; try it and fall back.
   function loadImg(srcs) {
     return new Promise(function (res, rej) {
       var i = 0;
@@ -73,7 +76,7 @@
     var z = norm(sub(e, c)), x = norm(cross(up, z)), y = cross(z, x);
     return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, e), -dot(y, e), -dot(z, e), 1];
   }
-  function mul(a, b) { // column-major a*b
+  function mul(a, b) {
     var o = new Array(16);
     for (var c = 0; c < 4; c++) for (var r = 0; r < 4; r++)
       o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
@@ -81,25 +84,47 @@
   }
 
   // ---------- shaders ----------
-  // Occlusion edges: the foreground mesh is built from a slightly dilated depth (near things grow a
-  // few texels past their outline), so no triangle is stretched across an edge. Each pixel then checks
-  // the full-res depth map: if it is really further away than the surface it sits on, it is faded out
-  // (feathered) and the inpainted far layer shows through. The cut follows the true outline smoothly.
+  // Occlusion edges: dilated foreground mesh + full-res depth check fades pixels that sit past the
+  // true outline, so the far layer shows through cleanly. Mipmap LOD bias gives a cheap shallow DOF.
   var VS = 'attribute vec3 p;attribute vec2 uv;uniform mat4 m;uniform float zo;varying vec2 vUv;varying float vD;varying float vZ;' +
     'void main(){vUv=uv;vD=(p.z-zo)/' + DZ.toFixed(3) + ';vec4 q=m*vec4(p,1.);vZ=q.w;gl_Position=q;}';
-  var FS = '#define DBG ' + (/[?&]dbg\b/.test(location.search) ? 'true' : 'false') + '\nprecision mediump float;uniform sampler2D t;uniform sampler2D dt;uniform float tol;uniform vec3 fog;' +
+  // Cheap DOF: 5-tap blur scaled by circle-of-confusion. (WebGL1 cannot mipmap NPOT textures, so no LOD bias.)
+  var FS = '#define DBG ' + (/[?&]dbg\b/.test(location.search) ? 'true' : 'false') + '\nprecision mediump float;uniform sampler2D t;uniform sampler2D dt;uniform float tol;uniform vec3 fog;uniform float focusZ;uniform float dof;' +
     'varying vec2 vUv;varying float vD;varying float vZ;' +
-    'void main(){vec2 uv=1.-abs(1.-abs(vUv));' +   // mirror past the frame edges
+    'void main(){vec2 uv=clamp(vUv,0.,1.);' +
     'float a=1.;if(tol<1.){float g=vD-texture2D(dt,uv).r;a=1.-smoothstep(tol*.4,tol,g);if(a<.02)discard;}' +
-    'vec3 c=texture2D(t,uv).rgb;if(DBG)c=vec3((vD-texture2D(dt,uv).r)*10.,texture2D(dt,uv).r,vD);float f=clamp((vZ-1.3)*0.18,0.,0.2);gl_FragColor=vec4(mix(c,fog,f),a);}';
+    'float coc=clamp(abs(vZ-focusZ)*dof,0.,1.);vec2 px=vec2(0.0035,0.002)*coc;' +
+    'vec3 c=texture2D(t,uv).rgb;' +
+    'if(coc>0.04){c=c*0.36+texture2D(t,uv+vec2(px.x,0.)).rgb*0.16+texture2D(t,uv-vec2(px.x,0.)).rgb*0.16+texture2D(t,uv+vec2(0.,px.y)).rgb*0.16+texture2D(t,uv-vec2(0.,px.y)).rgb*0.16;}' +
+    'if(DBG)c=vec3((vD-texture2D(dt,uv).r)*10.,texture2D(dt,uv).r,vD);float f=clamp((vZ-1.3)*0.18,0.,0.22);gl_FragColor=vec4(mix(c,fog,f),a);}';
+
+  // Additive soft glow billboard at the fingertip light
+  var GVS = 'attribute vec2 c;uniform mat4 m;uniform vec3 pos;uniform vec3 right;uniform vec3 up;uniform float sz;varying vec2 vC;' +
+    'void main(){vC=c;vec3 w=pos+right*(c.x*sz)+up*(c.y*sz);gl_Position=m*vec4(w,1.);}';
+  var GFS = 'precision mediump float;varying vec2 vC;void main(){float r=length(vC);float core=exp(-r*r*9.);float halo=exp(-r*r*2.2)*.45;float rays=0.;' +
+    'for(int i=0;i<6;i++){float ang=float(i)*1.047;vec2 d=vec2(cos(ang),sin(ang));float along=max(0.,dot(vC,d));float side=abs(vC.x*d.y-vC.y*d.x);rays+=exp(-side*side*90.)*exp(-along*along*1.8)*.18;}' +
+    'float a=core+halo+rays;gl_FragColor=vec4(1.,.92,.62,1.)*a;}';
+
   function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
-  var prog = gl.createProgram();
-  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
+  function link(vs, fs) {
+    var p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  var prog = link(VS, FS);
   var L = { p: gl.getAttribLocation(prog, 'p'), uv: gl.getAttribLocation(prog, 'uv'),
-    m: gl.getUniformLocation(prog, 'm'), t: gl.getUniformLocation(prog, 't'), dt: gl.getUniformLocation(prog, 'dt'), tol: gl.getUniformLocation(prog, 'tol'), zo: gl.getUniformLocation(prog, 'zo'), fog: gl.getUniformLocation(prog, 'fog') };
+    m: gl.getUniformLocation(prog, 'm'), t: gl.getUniformLocation(prog, 't'), dt: gl.getUniformLocation(prog, 'dt'),
+    tol: gl.getUniformLocation(prog, 'tol'), zo: gl.getUniformLocation(prog, 'zo'), fog: gl.getUniformLocation(prog, 'fog'),
+    focusZ: gl.getUniformLocation(prog, 'focusZ'), dof: gl.getUniformLocation(prog, 'dof') };
+  var gProg = link(GVS, GFS);
+  var GL = { c: gl.getAttribLocation(gProg, 'c'), m: gl.getUniformLocation(gProg, 'm'),
+    pos: gl.getUniformLocation(gProg, 'pos'), right: gl.getUniformLocation(gProg, 'right'),
+    up: gl.getUniformLocation(gProg, 'up'), sz: gl.getUniformLocation(gProg, 'sz') };
+  var glowQuad = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, glowQuad);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
 
   // ---------- mesh from the depth map ----------
   function readDepth(im) {
@@ -109,7 +134,7 @@
   }
   function buildMesh(D, ch, step, zOff, dil) {
     var w = D.w, h = D.h, px = D.px;
-    var ext = Math.round(MARGIN * w);                       // extra columns/rows beyond the frame
+    var ext = Math.round(MARGIN * w);
     var cols = Math.floor((w + 2 * ext - 1) / step) + 1, rows = Math.floor((h + 2 * ext - 1) / step) + 1;
     var n = cols * rows;
     if (n > 65535 && !uintOK) { step++; return buildMesh(D, ch, step, zOff, dil); }
@@ -118,7 +143,7 @@
     for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
       var i = r * cols + c, gx = c * step - ext, gy = r * step - ext;
       var u = (gx + 0.5) / w, v = (gy + 0.5) / h, d = dz(gx, gy);
-      if (dil) { // foreground: near things grow a little past their outline, so no triangle is stretched
+      if (dil) {
         for (var oy = -dil; oy <= dil; oy++) for (var ox = -dil; ox <= dil; ox++) { var q = dz(gx + ox, gy + oy); if (q > d) d = q; }
       }
       pos[i * 3] = (u - 0.5) * PW; pos[i * 3 + 1] = (0.5 - v) * PH; pos[i * 3 + 2] = d * DZ + zOff;
@@ -136,10 +161,10 @@
     var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     return t;
   }
 
@@ -171,11 +196,10 @@
   }
 
   // ---------- render ----------
-  var fg, bg, tFg, tBg, vw, vh, dpr, qual = 1;
+  var fg, bg, tFg, tBg, vw, vh, dpr, qual = 1, dofOn = true;
   function resize() {
     dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * qual);
     vh = window.innerHeight;
-    // wide screens: fly inside a centred portrait column (same shot as on a phone), backdrop on the sides
     vw = window.innerWidth / vh > 0.75 ? Math.round(vh * PW / PH) : window.innerWidth;
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
     canvas.style.width = vw + 'px'; canvas.style.height = vh + 'px';
@@ -189,17 +213,47 @@
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawElements(gl.TRIANGLES, mesh.count, mesh.type, 0);
   }
+  function drawGlow(m, eye, tgt) {
+    var gz = depthAt(GLOW.u, GLOW.v) * DZ + GLOW.zLift;
+    var pos = [(GLOW.u - 0.5) * PW, (0.5 - GLOW.v) * PH, gz];
+    var fwd = norm(sub(tgt, eye)), right = norm(cross(fwd, [0, 1, 0]));
+    if (Math.hypot(right[0], right[1], right[2]) < 0.01) right = [1, 0, 0];
+    var upv = cross(right, fwd);
+    gl.disableVertexAttribArray(L.p); gl.disableVertexAttribArray(L.uv);
+    gl.useProgram(gProg);
+    gl.uniformMatrix4fv(GL.m, false, new Float32Array(m));
+    gl.uniform3f(GL.pos, pos[0], pos[1], pos[2]);
+    gl.uniform3f(GL.right, right[0], right[1], right[2]);
+    gl.uniform3f(GL.up, upv[0], upv[1], upv[2]);
+    gl.uniform1f(GL.sz, GLOW.size);
+    gl.depthMask(false);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.bindBuffer(gl.ARRAY_BUFFER, glowQuad);
+    gl.enableVertexAttribArray(GL.c);
+    gl.vertexAttribPointer(GL.c, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disableVertexAttribArray(GL.c);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(true);
+    gl.useProgram(prog);
+    gl.enableVertexAttribArray(L.p); gl.enableVertexAttribArray(L.uv);
+  }
   function render(sec) {
     var c = sample(sec);
     var eye = [c[0], c[1], c[2]], tgt = [c[3], c[4], c[5]];
     var r = c[6] * Math.PI / 180, up = [Math.sin(r), Math.cos(r), 0];
     var m = mul(persp(FOV, vw / vh, 0.05, 20), lookAt(eye, tgt, up));
+    var focusZ = Math.hypot(tgt[0] - eye[0], tgt[1] - eye[1], tgt[2] - eye[2]);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.09, 0.07, 0.05, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(prog); gl.uniformMatrix4fv(L.m, false, new Float32Array(m));
     gl.uniform3f(L.fog, 0.80, 0.70, 0.52);
-    draw(bg, tBg, 9.0);           // far layer: always drawn
-    draw(fg, tFg, EDGE);          // relief: torn open at depth edges, revealing the far layer
+    gl.uniform1f(L.focusZ, focusZ);
+    gl.uniform1f(L.dof, dofOn ? DOF : 0.0);
+    gl.enableVertexAttribArray(L.p); gl.enableVertexAttribArray(L.uv);
+    draw(bg, tBg, 9.0);
+    draw(fg, tFg, EDGE);
+    drawGlow(m, eye, tgt);
   }
 
   var running = false, raf = 0, t0 = null, elapsed = 0, last = 0, slow = [];
@@ -209,10 +263,11 @@
     if (t0 === null) t0 = now - elapsed * 1000;
     elapsed = (now - t0) / 1000;
     render(frozen !== undefined ? +frozen : elapsed);
-    // adaptive resolution: if a slow phone can't hold ~45 fps, render fewer pixels (down to 1x)
     if (last) { slow.push(now - last); if (slow.length === 60) {
       slow.sort(function (a, b) { return a - b; });
       if (slow[30] > 22 && qual > 0.55) { qual -= 0.2; resize(); }
+      // drop DOF before resolution if still struggling — keeps silhouettes sharp on weak GPUs
+      if (slow[30] > 28 && dofOn) dofOn = false;
       slow = [];
     } }
     last = now;
@@ -228,11 +283,11 @@
   ]).then(function (ims) {
     var D = readDepth(ims[2]);
     depthAt = function (u, v) { var x = Math.min(D.w - 1, Math.max(0, Math.round(u * D.w))), y = Math.min(D.h - 1, Math.max(0, Math.round(v * D.h))); return D.px[(y * D.w + x) * 4] / 255; };
-    fg = buildMesh(D, 0, 2, 0, 3);    // red = foreground depth (dilated by 3 texels)
-    bg = buildMesh(D, 1, 4, -0.015, 0);  // green = background depth, coarser, a hair behind
+    fg = buildMesh(D, 0, 2, 0, 3);
+    bg = buildMesh(D, 1, 4, -0.015, 0);
     gl.activeTexture(gl.TEXTURE1); tex(ims[2]); gl.activeTexture(gl.TEXTURE0);
     tFg = tex(ims[0]); tBg = tex(ims[1]);
-    gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // feathered edges
+    gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enableVertexAttribArray(L.p); gl.enableVertexAttribArray(L.uv);
     gl.useProgram(prog); gl.uniform1i(L.t, 0); gl.uniform1i(L.dt, 1);
     prepare(); resize();
@@ -240,7 +295,7 @@
     document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
     render(frozen !== undefined ? +frozen : 0);
     document.querySelector('.scene').appendChild(canvas);
-    requestAnimationFrame(function () {   // cross-fade from the flat painting to the 3D flight
+    requestAnimationFrame(function () {
       cam2d.stop(); canvas.classList.add('on'); document.documentElement.classList.add('drone-on');
       start();
     });

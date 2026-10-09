@@ -26,11 +26,18 @@ const fpsProbe=p=>p.evaluate(()=>new Promise(res=>{const d=[];let l=performance.
   R.loopSeconds=await p.evaluate(()=>window.__drone.LOOP);
   R.waypoints=await p.evaluate(()=>window.__drone.keyTimes());
   // 2) waypoint stills
-  const names=['gods-face','gods-shoulder','fingertip','orbit-the-light','adams-arm','adams-face','low-under-adam','low-past-lake','left-side-climb','back-to-light','cherubs','cherubs-up','arc-over-top'];
+  const names=['wide','push-god','ots-god','through-light','past-spark','adams-arm','ots-adam','low-lake','pull-hands','back-to-light','cherubs','pull-out','wide-seam'];
   for(const [i,t] of R.waypoints.entries()){await p.evaluate(t=>window.__drone.render(t),t);
-    await p.screenshot({path:`${OUT}drone-wp${String(i+1).padStart(2,'0')}-t${t}s-${names[i]}.jpg`,quality:85});}
-  // 3) parallax pairs: same target, two moments 1.2 s apart
-  for(const t of [7.0,19.5]){for(const dt of [0,1.2]){await p.evaluate(t=>window.__drone.render(t),t+dt);await p.screenshot({path:`/tmp/par-${t}-${dt}.png`});}}
+    await p.screenshot({path:`${OUT}drone-wp${String(i+1).padStart(2,'0')}-t${t}s-${names[i]||'key'}.jpg`,quality:85});}
+  // 3) parallax pairs: same target, two moments 1.2 s apart → side-by-side jpg
+  const {spawnSync}=await import('child_process');
+  for(const t of [8.0,19.0]){
+    const shots=[];
+    for(const dt of [0,1.2]){const f=`/tmp/par-${t}-${dt}.png`;
+      await p.evaluate(t=>window.__drone.render(t),t+dt); await p.screenshot({path:f}); shots.push(f);}
+    const out=`${OUT}parallax-pair-t${t}s.jpg`;
+    spawnSync('python3',['-c',`from PIL import Image;a=Image.open(${JSON.stringify(shots[0])}).convert('RGB');b=Image.open(${JSON.stringify(shots[1])}).convert('RGB');w,h=a.size;o=Image.new('RGB',(w*2+8,h),(20,16,12));o.paste(a,(0,0));o.paste(b,(w+8,0));o.save(${JSON.stringify(out)},quality=85)`],{stdio:'inherit'});
+  }
   await p.close(); }
 // 4) desktop
 { const p=await page({width:1440,height:900}); await p.goto(BASE,{waitUntil:'networkidle0'}); await ready(p);

@@ -15,19 +15,19 @@
     // Portrait painting: start low on Adam and the rocks, rise up his arm, through the light
     // between the fingers, up to God, then ease back down.
     // Fred's drawn path (portrait painting). One closed loop:
-    portrait: { loop: 36, still: { u: 0.33, v: 0.42, z: 1.6 }, keys: [
-      { u: 0.25, v: 0.08, z: 2.20 },  // God's face (push in)
-      { u: 0.20, v: 0.30, z: 1.90 },  // down God's shoulder and forearm
-      { u: 0.33, v: 0.42, z: 2.20 },  // his fingertip and the light (push in)
-      { u: 0.50, v: 0.53, z: 1.90 },  // follow Adam's arm down-right
-      { u: 0.80, v: 0.62, z: 2.20 },  // Adam's face (push in)
-      { u: 0.60, v: 0.85, z: 1.70 },  // sweep around under Adam's body
-      { u: 0.15, v: 0.75, z: 1.70 },  // along the bottom to the left
-      { u: 0.15, v: 0.65, z: 1.75 },  // up the left side over the lake
-      { u: 0.35, v: 0.50, z: 1.90 },  // curve up-right back toward the light
-      { u: 0.62, v: 0.40, z: 1.85 },  // up through the cherubs
-      { u: 0.70, v: 0.25, z: 1.85 },
-      { u: 0.60, v: 0.05, z: 1.90 }   // arc over the top, back to God's face
+    portrait: { loop: 32, still: { u: 0.42, v: 0.44, z: 1.45 }, keys: [
+      { u: 0.42, v: 0.44, z: 1.35 },  // wide hover
+      { u: 0.28, v: 0.18, z: 2.15 },  // push to God's face
+      { u: 0.24, v: 0.34, z: 2.00 },  // OTS God / arm
+      { u: 0.34, v: 0.43, z: 2.30 },  // through the light
+      { u: 0.52, v: 0.54, z: 1.95 },  // Adam's arm
+      { u: 0.78, v: 0.62, z: 2.15 },  // OTS Adam
+      { u: 0.58, v: 0.84, z: 1.65 },  // low under Adam
+      { u: 0.20, v: 0.72, z: 1.70 },  // past the lake
+      { u: 0.35, v: 0.50, z: 1.90 },  // back toward the light
+      { u: 0.62, v: 0.36, z: 1.85 },  // cherubs
+      { u: 0.55, v: 0.22, z: 1.70 },  // pull out
+      { u: 0.45, v: 0.40, z: 1.40 }   // ease to wide
     ]},
     // Landscape painting (earlier stand-in): window travelling across a wide picture.
     landscape: { loop: 26, still: { u: 0.425, v: 0.44, z: 1.30 }, keys: [
