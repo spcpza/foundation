@@ -1,0 +1,40 @@
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#17120d;color:#fff;overflow:hidden}
+body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+
+/* letterbox fill (only visible when the painting is narrower than the screen, e.g. desktop) */
+.backdrop{position:fixed;inset:-40px;background-size:cover;background-position:center;filter:blur(28px) brightness(.45) saturate(1.1);transform:translateZ(0)}
+
+.scene{position:fixed;inset:0;overflow:hidden;contain:strict}
+/* The ONE element the camera moves (translate3d + scale). Sized by app.js. */
+.stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;background-size:100% 100%;background-color:#3a2a20;width:56.25vh;height:100vh}
+.stage picture,.stage img,.stage video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
+.stage img{opacity:0;transition:opacity .9s ease}
+.stage.loaded img{opacity:1}
+.stage video{opacity:0;transition:opacity 1.2s ease}
+.stage video.playing{opacity:1}
+
+.scrim{position:fixed;left:0;right:0;bottom:0;height:62%;pointer-events:none;
+  background:linear-gradient(to top,rgba(12,9,6,.78) 0%,rgba(12,9,6,.55) 30%,rgba(12,9,6,.18) 62%,rgba(12,9,6,0) 100%)}
+
+.copy{position:fixed;left:0;bottom:0;
+  padding:0 max(7vw,env(safe-area-inset-right)) max(7vh,calc(env(safe-area-inset-bottom) + 24px)) max(7vw,env(safe-area-inset-left))}
+.words{margin:0;font-weight:400;font-size:clamp(2.6rem,13.5vw,6rem);line-height:.98;letter-spacing:-.035em;max-width:11.5ch;
+  text-shadow:0 1px 18px rgba(0,0,0,.35)}
+.line{margin:1.1em 0 0;max-width:30ch;font-size:clamp(.95rem,4.1vw,1.15rem);line-height:1.45;font-weight:400;letter-spacing:.005em;
+  color:rgba(255,255,255,.86);text-shadow:0 1px 10px rgba(0,0,0,.45);transition:opacity 1.4s ease,transform 1.4s ease}
+@media (orientation:landscape){
+  .copy{padding-left:max(5vw,env(safe-area-inset-left));padding-bottom:9vh}
+  .words{font-size:clamp(2.2rem,3.5vw,4.6rem)}
+  .line{font-size:clamp(.95rem,1.15vw,1.2rem);max-width:28ch}
+}
+.words .c{position:relative;display:inline-block;white-space:pre}
+.words .c.s{color:transparent}
+.words .c.s::after{content:attr(data-g);position:absolute;left:50%;top:0;transform:translateX(-50%);color:rgba(255,255,255,.78)}
+.words .w{display:inline-block;white-space:nowrap}
+.js .words:not(.ready){opacity:0}
+.js .line:not(.shown){opacity:0;transform:translateY(6px)}
+.drone{position:fixed;top:0;left:0;opacity:0;transition:opacity 1.2s ease;display:block}
+.drone.on{opacity:1}
+.drone-on .stage{opacity:0;transition:opacity .6s ease 1.2s}
+@media (orientation:landscape){.drone{box-shadow:0 0 80px rgba(0,0,0,.55)}}

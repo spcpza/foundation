@@ -1,0 +1,7 @@
+# Cloudflare Workers static assets for solichin.org — DO NOT deploy without Fred's yes.
+name = "solichin-org"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
