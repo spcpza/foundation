@@ -10,9 +10,9 @@
   var ASSET = '/img/';
   var DZ = 0.30;               // relief depth (painting is 2 units tall)
   var LOOP = 32;               // seconds per loop (matches reference/fpv-preview)
-  var FOV = 52 * Math.PI / 180; // wider for FPV immersion
+  var FOV = 48 * Math.PI / 180; // FPV-wide but still fills the painting on the wide hover
   var EDGE = 0.05;             // depth mismatch (0..1) at which the relief is torn open
-  var MARGIN = 0.12;           // mesh extends past the frame (clamped texture) so orbits never see void
+  var MARGIN = 0.08;           // small skirt past the frame; keep wide keys close enough to hide it
   var DOF = 0.85;              // shallow-focus strength (5-tap blur; auto-off if frames stay slow)
   // Fingertip light in painting UV (kept as its own additive sprite so depth tears don't snuff it)
   var GLOW = { u: 0.345, v: 0.435, size: 0.18, zLift: 0.022 };
@@ -20,20 +20,21 @@
   // FPV path (from C preview stills + Fred's route). u,v = look-at on the painting (0..1),
   // d = distance, yaw/pitch = drone seat around that point (degrees), roll = bank.
   // Stay inset and avoid looking "through" the relief from behind — that stretches the mesh.
+  // Wide keys use d≲1.65 so FOV never frames the clamp-stretched skirt.
   var KEYS = [
-    { u: 0.42, v: 0.44, d: 1.90, yaw:   0, pitch:   0, roll:  0 },  // 0s  wide hover — full scene
-    { u: 0.30, v: 0.20, d: 1.20, yaw:  -8, pitch:   5, roll: -2 },  // 3s  push in to God's face
+    { u: 0.42, v: 0.44, d: 1.62, yaw:   0, pitch:   0, roll:  0 },  // 0s  wide hover — full scene
+    { u: 0.30, v: 0.20, d: 1.15, yaw:  -8, pitch:   5, roll: -2 },  // 3s  push in to God's face
     { u: 0.27, v: 0.34, d: 0.82, yaw: -24, pitch:   2, roll: -7 },  // 6s  OTS God — down the arm
     { u: 0.34, v: 0.43, d: 0.52, yaw:  -4, pitch:  -1, roll:  2 },  // 8s  through the light (closest)
     { u: 0.42, v: 0.48, d: 0.72, yaw:  18, pitch:   2, roll:  5 },  // 10s past the spark, glance Adam-side
     { u: 0.55, v: 0.54, d: 0.88, yaw:  20, pitch:  -4, roll:  5 },  // 13s along Adam's arm
     { u: 0.70, v: 0.61, d: 0.78, yaw:  22, pitch:  -2, roll:  4 },  // 16s OTS Adam's face
     { u: 0.58, v: 0.78, d: 1.18, yaw:   8, pitch: -14, roll: -3 },  // 19s low over body / lake
-    { u: 0.36, v: 0.58, d: 1.30, yaw:  -8, pitch:  -6, roll: -4 },  // 22s pull back, hands in frame
+    { u: 0.36, v: 0.58, d: 1.25, yaw:  -8, pitch:  -6, roll: -4 },  // 22s pull back, hands in frame
     { u: 0.36, v: 0.45, d: 1.00, yaw:  -2, pitch:   1, roll:  1 },  // 24s rise toward the light
-    { u: 0.62, v: 0.34, d: 1.15, yaw:  12, pitch:   5, roll:  4 },  // 26s cherubs
-    { u: 0.50, v: 0.30, d: 1.45, yaw:   4, pitch:   2, roll:  1 },  // 29s pull out
-    { u: 0.44, v: 0.40, d: 1.78, yaw:   1, pitch:   0, roll:  0 }   // 31s ease to wide (seam)
+    { u: 0.62, v: 0.34, d: 1.12, yaw:  12, pitch:   5, roll:  4 },  // 26s cherubs
+    { u: 0.50, v: 0.32, d: 1.35, yaw:   4, pitch:   2, roll:  1 },  // 29s pull out
+    { u: 0.44, v: 0.42, d: 1.55, yaw:   1, pitch:   0, roll:  0 }   // 31s ease to wide (seam)
   ];
 
   var stage = document.getElementById('stage');

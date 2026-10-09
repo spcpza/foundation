@@ -1,5 +1,5 @@
 {
-  "firstLoadBytes": 447610,
+  "firstLoadBytes": 447713,
   "requests": [
     {
       "url": "/",
@@ -24,7 +24,7 @@
     {
       "url": "/drone.js",
       "mime": "text/javascript",
-      "bytes": 18414
+      "bytes": 18517
     },
     {
       "url": "/img/painting-3d.avif",
@@ -43,30 +43,30 @@
     }
   ],
   "fps_swiftshader_dpr3": {
-    "fps": 8.8,
-    "medianMs": 100,
-    "p95Ms": 216.7
+    "fps": 6.7,
+    "medianMs": 133.4,
+    "p95Ms": 333.3
   },
   "fps_swiftshader_dpr3_cpu4x": {
-    "fps": 8.6,
-    "medianMs": 100.1,
-    "p95Ms": 266.6
+    "fps": 6.3,
+    "medianMs": 166.6,
+    "p95Ms": 333.3
   },
   "loopSeconds": 32,
   "waypoints": [
     0,
-    4.3,
-    6.87,
-    9.33,
-    11.15,
-    12.73,
-    13.91,
-    18.03,
-    21.97,
-    24.21,
-    27.32,
-    29.42,
-    31.35
+    3.92,
+    6.5,
+    9.1,
+    11.02,
+    12.68,
+    13.93,
+    18.26,
+    22.43,
+    24.73,
+    27.97,
+    29.9,
+    31.56
   ],
   "reducedMotion": {
     "droneLoaded": false
