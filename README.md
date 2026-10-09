@@ -3,7 +3,7 @@
 A one-screen family site, made for phones first: an FPV drone flies through Fred's painting while "a foundation for tomorrow" decodes on top of it. Read `NOTE.md` first.
 
 - `public/` is the whole site. Preview it with `python3 -m http.server 8787 -d public`.
-- 3D FPV drone: `public/drone.js` (WebGL 1, no libraries, 32 s loop). The 2D pan in `app.js` is the fallback. Reduced motion and Save-Data get a still frame.
+- 3D POV drone: `public/drone.js` (WebGL 1, no libraries, ~28 s loop; looks along flight velocity). The 2D pan in `app.js` is the fallback. Reduced motion and Save-Data get a still frame.
 - FPV still reference: `reference/fpv-preview/` (from the temporary C phone preview).
 - URL flags: `?flat` (2D only), `?t=12` (freeze at 12 s), `?still`, `?dbg` (depth check colors).
 - Swap the painting:

@@ -1,10 +1,10 @@
 {
-  "firstLoadBytes": 447713,
+  "firstLoadBytes": 426941,
   "requests": [
     {
       "url": "/",
       "mime": "text/html",
-      "bytes": 3553
+      "bytes": 3513
     },
     {
       "url": "/style.css",
@@ -14,59 +14,61 @@
     {
       "url": "/img/painting-full.avif",
       "mime": "image/avif",
-      "bytes": 92039
+      "bytes": 104958
     },
     {
       "url": "/app.js",
       "mime": "text/javascript",
-      "bytes": 10088
+      "bytes": 10013
     },
     {
       "url": "/drone.js",
       "mime": "text/javascript",
-      "bytes": 18517
+      "bytes": 18911
     },
     {
       "url": "/img/painting-3d.avif",
       "mime": "image/avif",
-      "bytes": 179593
+      "bytes": 151117
     },
     {
       "url": "/img/bg.avif",
       "mime": "image/avif",
-      "bytes": 21226
+      "bytes": 27004
     },
     {
       "url": "/img/depth.webp",
       "mime": "image/webp",
-      "bytes": 119782
+      "bytes": 108510
     }
   ],
   "fps_swiftshader_dpr3": {
-    "fps": 6.7,
-    "medianMs": 133.4,
-    "p95Ms": 333.3
+    "fps": 8,
+    "medianMs": 116.6,
+    "p95Ms": 266.7
   },
   "fps_swiftshader_dpr3_cpu4x": {
-    "fps": 6.3,
-    "medianMs": 166.6,
-    "p95Ms": 333.3
+    "fps": 7,
+    "medianMs": 133.4,
+    "p95Ms": 316.6
   },
-  "loopSeconds": 32,
+  "loopSeconds": 28,
   "waypoints": [
     0,
-    3.92,
-    6.5,
-    9.1,
-    11.02,
-    12.68,
-    13.93,
-    18.26,
-    22.43,
-    24.73,
-    27.97,
-    29.9,
-    31.56
+    3.39,
+    4.54,
+    6.33,
+    7.41,
+    8.28,
+    9.83,
+    11.65,
+    13,
+    14.67,
+    17.21,
+    21.07,
+    23.67,
+    26.32,
+    27.18
   ],
   "reducedMotion": {
     "droneLoaded": false

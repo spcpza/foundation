@@ -26,12 +26,12 @@ const fpsProbe=p=>p.evaluate(()=>new Promise(res=>{const d=[];let l=performance.
   R.loopSeconds=await p.evaluate(()=>window.__drone.LOOP);
   R.waypoints=await p.evaluate(()=>window.__drone.keyTimes());
   // 2) waypoint stills
-  const names=['wide','push-god','ots-god','through-light','past-spark','adams-arm','ots-adam','low-lake','pull-hands','back-to-light','cherubs','pull-out','wide-seam'];
+  const names=['wide','dive-god','gods-face','ots-arm','forearm','through-light','past-spark','adams-arm','adam-face','ground','cypress','sky-climb','stars','pull-back','wide-seam'];
   for(const [i,t] of R.waypoints.entries()){await p.evaluate(t=>window.__drone.render(t),t);
     await p.screenshot({path:`${OUT}drone-wp${String(i+1).padStart(2,'0')}-t${t}s-${names[i]||'key'}.jpg`,quality:85});}
   // 3) parallax pairs: same target, two moments 1.2 s apart → side-by-side jpg
   const {spawnSync}=await import('child_process');
-  for(const t of [8.0,19.0]){
+  for(const t of [6.0,16.0]){
     const shots=[];
     for(const dt of [0,1.2]){const f=`/tmp/par-${t}-${dt}.png`;
       await p.evaluate(t=>window.__drone.render(t),t+dt); await p.screenshot({path:f}); shots.push(f);}

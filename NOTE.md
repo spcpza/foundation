@@ -5,17 +5,17 @@ Hi Claude. This is the first version of **solichin.org**, a small site Fred is m
 ## What the site is
 
 - One screen, designed for phones first (portrait).
-- Background: Fred's portrait painting of the Creation of Adam (God above, the two fingers almost touching with light between them, Adam below, a lake and mountains behind).
-- The camera flies through the painting like an FPV drone, in a seamless 32 s loop.
+- Background: Creation of Adam reimagined in Van Gogh's *Starry Night* style (`src/starry-creation.jpg`) — God upper-right, Adam lower-left, spark at the fingers, swirling starry sky. (Fred's original portrait remains at `src/portrait-crop.jpg`.)
+- The camera is a true POV / FPV drone: it flies a path close over the relief and looks toward where it's going (not an orbit pan), in a seamless ~28 s loop.
 - Text: the headline **"a foundation for tomorrow"** decodes letter by letter (a scramble reveal). Then one smaller line fades in: *"We are a family office wanting to create a little good for the world, and to do that we put our faith in God."*
 - Keep it minimal and elegant. No menus, no other content.
 
 ## How it works (files)
 
 - `public/index.html`, `public/style.css`, `public/app.js`: page, text, scramble, and a light 2D camera (pan and zoom). The 2D camera is the fallback and runs right away under the blurred placeholder.
-- `public/drone.js`: the 3D FPV drone. Plain WebGL 1, no libraries, ~18 KB. The painting becomes a relief: a dense mesh pushed out by a depth map (Depth Anything V2), plus an inpainted far layer behind it. Where a near thing (a hand, an arm) passes in front of a far thing, the relief is cut along the real outline, so you see background in the gap rather than a smear. A perspective camera flies a closed spline on the FPV path (wide → OTS God → through the light → OTS Adam → low past the lake → cherubs → wide), with dolly, altitude changes and bank. Additive fingertip glow + cheap DOF. The 3D canvas cross-fades over the 2D layer when it is ready.
-  - `KEYS` near the top of `drone.js` is the path. Each key is the point looked at (`u`,`v` from 0 to 1 on the painting), distance `d`, and where the drone sits around that point (`yaw`, `pitch`, `roll` in degrees). `DZ` is how deep the relief is. `LOOP` is seconds per loop (32).
-  - Phone preview reference (from the temporary C hosting): `reference/fpv-preview/` (waypoint stills). Do not look "through" the relief from behind — the mesh stretches.
+- `public/drone.js`: the 3D POV drone. Plain WebGL 1, no libraries, ~18 KB. The painting becomes a relief: a dense mesh pushed out by a depth map (Depth Anything V2), plus an inpainted far layer behind it. Where a near thing (a hand, an arm) passes in front of a far thing, the relief is cut along the real outline, so you see background in the gap rather than a smear. The camera flies a closed spline of **positions** over the surface and looks along its velocity (true FPV). Additive fingertip glow + cheap DOF. The 3D canvas cross-fades over the 2D layer when it is ready.
+  - `KEYS` near the top of `drone.js` is the path. Each key is the drone's position (`u`,`v` on the painting), height `h` above the local relief, and `roll` (bank). Look direction is derived from path velocity — there is no separate look-at / orbit. `DZ` is relief depth. `LOOP` is seconds per loop (~28). `FOV` is wide (~78°).
+  - Reference: `reference/fpv-preview/` stills, and the feel of real FPV freestyle (fly toward / past things, bank into turns). Do not look "through" the relief from behind — the mesh stretches.
 - `public/img/`: `painting-{small,full}` (2D layer, AVIF/WebP/JPG), `painting-3d` (2x upscaled with Real-ESRGAN, 2304x4096), `depth.webp` (red channel = depth of the relief, green = depth of the far layer), `bg` (inpainted far layer).
 - `tools/`: `build_images.py` (2D variants, placeholder, og image), `upscale.py` (Real-ESRGAN x2), `depth.py` (Depth Anything V2 Large), `prep3d.py` (depth, far layer, 3D texture), `proof3d.mjs` / `shot.mjs` / `desk.mjs` (headless screenshots, bytes, fps, the loop video).
 - `src/portrait-crop.jpg` is the painting. `src/depth16.png` is the raw depth (16-bit).
@@ -58,12 +58,12 @@ Second by second:
 
 Feel: cinematic, seamless loop, 3D orbit, strong parallax, shallow depth of field, sweeping, photographic.
 
-## Fred's FPV version (vertical, for phones) — current `KEYS`
+## Fred's POV version (vertical, for phones) — current `KEYS`
 
-9:16 portrait, first-person feel (you are the drone), 32 s seamless loop:
-wide hover → push to God's face → OTS down His arm → through the light between the fingers → past the spark along Adam's arm → OTS Adam's face → sweep low under Adam past the lake → rise back toward the light → cherubs → pull out to the same wide hover.
+9:16 portrait, true POV (you are the drone, looking where you fly), ~28 s seamless loop:
+hover out front → dive to God's face → skim OTS down His arm → punch through the light → race along Adam's arm past his face → drop low over the lake → climb left → cherubs → arc over the top → pull out to the same hover.
 
-Stills that defined this pass lived temporarily at https://github.com/spcpza/C/pull/1 (`preview/foundation-fpv/`); copies of the stills are in `reference/fpv-preview/`.
+Stills from the temporary C hosting: `reference/fpv-preview/`. Feel reference: real FPV freestyle — forward velocity lock, close skims, banked turns — not a cinematic orbit pan.
 
 Ready-to-paste image-to-video prompt (use the portrait painting as the start AND end frame):
 
