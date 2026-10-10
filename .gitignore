@@ -1,0 +1,9 @@
+node_modules/
+.venv/
+tools/models/
+src/*.npy
+src/*-x2.png
+reference/fpv-preview/*.mp4
+
+# Large Socoloff reference downloads (re-fetch from X media URLs)
+reference/socoloff/*.mp4
