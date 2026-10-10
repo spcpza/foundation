@@ -7,33 +7,32 @@
   'use strict';
   var cam2d = window.__camera; if (!cam2d) return;
   var ASSET = '/img/';
-  var DZ = 0.34;               // relief depth — enough for skim parallax without tearing
-  var LOOP = 28;               // seconds per loop
-  var FOV = 58 * Math.PI / 180; // FPV-wide, still fills Fred's portrait on the wide hover
+  // Matched to Socoloff Creation FPV refs (X 2108150104964452791 / 2108519572714209408):
+  // true first-person — look along flight velocity, bank into turns, close skims, through the gap.
+  var DZ = 0.42;               // deep relief — valley reads as far, figures as near
+  var LOOP = 20;               // seconds per loop (matches reference ~20 s)
+  var FOV = 58 * Math.PI / 180; // ~28–35mm feel on phone portrait
   var EDGE = 0.05;
   var MARGIN = 0.08;
-  var DOF = 0.70;
-  var LOOK = 0.70;             // seconds of look-ahead along the flight path
-  // Fingertip light on Fred's painting (additive so depth tears don't snuff it)
-  var GLOW = { u: 0.345, v: 0.435, size: 0.17, zLift: 0.028 };
+  var DOF = 0.62;              // shallow focus on close passes (reference uses strong DOF)
+  var LOOK = 0.70;             // look-ahead — you are the drone
+  // Glow at the fingertip gap (center)
+  var GLOW = { u: 0.50, v: 0.44, size: 0.12, zLift: 0.04 };
 
-  // True POV path over Fred's portrait (God upper-left, Adam lower-right, spark between fingers).
-  // u,v = drone position on the painting; h = height above local relief; roll = bank.
-  // Look aims at the surface ahead on the path — you are the drone, not orbiting a fixed point.
+  // Portrait path over Creation landscape (Adam lower-left, God upper-right, valley behind gap).
+  // Shot list from reference: wide → God OTS → through fingers → Adam arm → Adam side → pull wide.
+  // (True behind-Adam novel views need video/mesh; we skim the near side without tearing.)
   var KEYS = [
-    { u: 0.42, v: 0.46, h: 0.98, roll:   0 },  // wide hover — full scene
-    { u: 0.34, v: 0.28, h: 0.48, roll:  -6 },  // dive toward God
-    { u: 0.29, v: 0.22, h: 0.30, roll:  -8 },  // close on God's face
-    { u: 0.28, v: 0.34, h: 0.24, roll: -10 },  // skim OTS down His arm
-    { u: 0.34, v: 0.43, h: 0.16, roll:   2 },  // punch through the light
-    { u: 0.48, v: 0.52, h: 0.22, roll:   8 },  // race along Adam's arm
-    { u: 0.66, v: 0.60, h: 0.26, roll:  10 },  // past Adam's face
-    { u: 0.58, v: 0.76, h: 0.34, roll:  -4 },  // drop low over the lake
-    { u: 0.34, v: 0.64, h: 0.40, roll:  -8 },  // climb the left side
-    { u: 0.36, v: 0.46, h: 0.30, roll:   0 },  // rise back toward the light
-    { u: 0.58, v: 0.34, h: 0.36, roll:   6 },  // through the cherubs
-    { u: 0.48, v: 0.26, h: 0.52, roll:   2 },  // arc over the top
-    { u: 0.42, v: 0.42, h: 0.88, roll:   0 }   // ease to wide (seam)
+    { u: 0.50, v: 0.50, h: 1.15, roll:   0 },  // 0s  wide — both figures + valley
+    { u: 0.62, v: 0.34, h: 0.58, roll:   8 },  // 3s  push in toward God
+    { u: 0.68, v: 0.30, h: 0.38, roll:  10 },  // 5s  close-pass God's shoulder (look forward)
+    { u: 0.58, v: 0.38, h: 0.28, roll:   4 },  // 7s  down the arm toward the gap
+    { u: 0.50, v: 0.44, h: 0.20, roll:  -2 },  // 8s  through the fingertips
+    { u: 0.40, v: 0.54, h: 0.30, roll:  -8 },  // 9s  along Adam's arm toward his face
+    { u: 0.32, v: 0.64, h: 0.38, roll: -10 },  // 12s past Adam's near side / rocks
+    { u: 0.42, v: 0.72, h: 0.52, roll:  -4 },  // 14s drop toward the valley
+    { u: 0.52, v: 0.56, h: 0.75, roll:   2 },  // 16s rapid pull-back
+    { u: 0.50, v: 0.50, h: 1.10, roll:   0 }   // 18–20s ease to wide (seam)
   ];
 
   var IMG_W = +document.getElementById('painting').getAttribute('width');

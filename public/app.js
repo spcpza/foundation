@@ -15,19 +15,15 @@
     // Portrait painting: start low on Adam and the rocks, rise up his arm, through the light
     // between the fingers, up to God, then ease back down.
     // Fred's drawn path (portrait painting). One closed loop:
-    portrait: { loop: 28, still: { u: 0.50, v: 0.48, z: 1.35 }, keys: [
-      { u: 0.50, v: 0.55, z: 1.30 },  // wide
-      { u: 0.68, v: 0.22, z: 2.10 },  // God
-      { u: 0.58, v: 0.38, z: 2.00 },  // God's arm
-      { u: 0.48, v: 0.48, z: 2.25 },  // spark
-      { u: 0.32, v: 0.68, z: 2.00 },  // Adam's arm
-      { u: 0.28, v: 0.80, z: 2.15 },  // Adam
-      { u: 0.55, v: 0.82, z: 1.60 },  // ground
-      { u: 0.78, v: 0.65, z: 1.70 },  // cypress
-      { u: 0.72, v: 0.35, z: 1.80 },  // sky climb
-      { u: 0.55, v: 0.28, z: 1.70 },  // stars
-      { u: 0.48, v: 0.42, z: 1.50 },  // pull back
-      { u: 0.50, v: 0.52, z: 1.35 }   // wide
+    portrait: { loop: 20, still: { u: 0.50, v: 0.50, z: 1.25 }, keys: [
+      { u: 0.50, v: 0.50, z: 1.20 },  // wide
+      { u: 0.68, v: 0.28, z: 1.95 },  // God
+      { u: 0.58, v: 0.38, z: 2.05 },  // arm / gap
+      { u: 0.50, v: 0.44, z: 2.20 },  // spark
+      { u: 0.36, v: 0.58, z: 1.95 },  // Adam's arm
+      { u: 0.28, v: 0.68, z: 2.00 },  // Adam
+      { u: 0.45, v: 0.74, z: 1.50 },  // valley
+      { u: 0.52, v: 0.52, z: 1.35 }   // pull wide
     ]},
 
     // Landscape painting (earlier stand-in): window travelling across a wide picture.
