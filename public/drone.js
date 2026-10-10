@@ -7,36 +7,33 @@
   'use strict';
   var cam2d = window.__camera; if (!cam2d) return;
   var ASSET = '/img/';
-  var DZ = 0.40;               // deeper relief so skim passes read as 3D
+  var DZ = 0.34;               // relief depth — enough for skim parallax without tearing
   var LOOP = 28;               // seconds per loop
-  var FOV = 68 * Math.PI / 180; // FPV-wide, still readable on a 2.5D relief
+  var FOV = 58 * Math.PI / 180; // FPV-wide, still fills Fred's portrait on the wide hover
   var EDGE = 0.05;
-  var MARGIN = 0.10;
-  var DOF = 0.55;
-  var LOOK = 0.65;             // seconds of look-ahead along the flight path
-  // Spark between the fingers on the Starry Night Creation painting
-  var GLOW = { u: 0.48, v: 0.48, size: 0.16, zLift: 0.04 };
+  var MARGIN = 0.08;
+  var DOF = 0.70;
+  var LOOK = 0.70;             // seconds of look-ahead along the flight path
+  // Fingertip light on Fred's painting (additive so depth tears don't snuff it)
+  var GLOW = { u: 0.345, v: 0.435, size: 0.17, zLift: 0.028 };
 
-  // POV path over the Starry Night × Creation of Adam painting.
-  // Composition: Adam lower-left (near), God upper-right (mid), swirling sky (far), spark at center.
-  //   u,v = drone position on the painting; h = height above local relief; roll = bank.
-  // Look aims at the surface ahead on the path (true POV, not an orbit pan).
+  // True POV path over Fred's portrait (God upper-left, Adam lower-right, spark between fingers).
+  // u,v = drone position on the painting; h = height above local relief; roll = bank.
+  // Look aims at the surface ahead on the path — you are the drone, not orbiting a fixed point.
   var KEYS = [
-    { u: 0.50, v: 0.50, h: 1.05, roll:   0 },  // wide hover — whole scene
-    { u: 0.64, v: 0.30, h: 0.55, roll:   8 },  // dive toward God
-    { u: 0.68, v: 0.24, h: 0.34, roll:  12 },  // close on God's face
-    { u: 0.60, v: 0.36, h: 0.28, roll:  10 },  // OTS down God's arm / cherubs
-    { u: 0.54, v: 0.43, h: 0.24, roll:   4 },  // along the forearm to the spark
-    { u: 0.48, v: 0.48, h: 0.20, roll:  -2 },  // through the light
-    { u: 0.40, v: 0.56, h: 0.24, roll: -12 },  // past the spark onto Adam's arm
-    { u: 0.32, v: 0.68, h: 0.26, roll: -14 },  // along Adam toward his face
-    { u: 0.30, v: 0.76, h: 0.28, roll:  -8 },  // past Adam
-    { u: 0.48, v: 0.82, h: 0.36, roll:   6 },  // skim the rocky ground
-    { u: 0.72, v: 0.70, h: 0.40, roll:  12 },  // past the cypress
-    { u: 0.76, v: 0.42, h: 0.45, roll:   8 },  // climb into the swirling sky
-    { u: 0.58, v: 0.26, h: 0.48, roll:  -4 },  // among the stars / moon
-    { u: 0.48, v: 0.42, h: 0.70, roll:  -2 },  // pull back past the spark
-    { u: 0.50, v: 0.48, h: 0.95, roll:   0 }   // ease to wide (seam)
+    { u: 0.42, v: 0.46, h: 0.98, roll:   0 },  // wide hover — full scene
+    { u: 0.34, v: 0.28, h: 0.48, roll:  -6 },  // dive toward God
+    { u: 0.29, v: 0.22, h: 0.30, roll:  -8 },  // close on God's face
+    { u: 0.28, v: 0.34, h: 0.24, roll: -10 },  // skim OTS down His arm
+    { u: 0.34, v: 0.43, h: 0.16, roll:   2 },  // punch through the light
+    { u: 0.48, v: 0.52, h: 0.22, roll:   8 },  // race along Adam's arm
+    { u: 0.66, v: 0.60, h: 0.26, roll:  10 },  // past Adam's face
+    { u: 0.58, v: 0.76, h: 0.34, roll:  -4 },  // drop low over the lake
+    { u: 0.34, v: 0.64, h: 0.40, roll:  -8 },  // climb the left side
+    { u: 0.36, v: 0.46, h: 0.30, roll:   0 },  // rise back toward the light
+    { u: 0.58, v: 0.34, h: 0.36, roll:   6 },  // through the cherubs
+    { u: 0.48, v: 0.26, h: 0.52, roll:   2 },  // arc over the top
+    { u: 0.42, v: 0.42, h: 0.88, roll:   0 }   // ease to wide (seam)
   ];
 
   var IMG_W = +document.getElementById('painting').getAttribute('width');
