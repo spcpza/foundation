@@ -15,7 +15,8 @@ The page names no one. Frescoes: Michelangelo, Sistine Chapel ceiling, 1508–12
   - **`night()` / `dawn()` (GLSL):** grade each fresco and swap its plaster for a painted world (`starry()` / `sunlit()`).
   - **`fit()`:** places each fresco. Wide screens see all of it; phones see a crop centred on God's face or on the hands.
   - **Strokes:** three passes, with the brush size taken from detail, so faces and hands stay readable. Small brushes are depth-sorted on top. Scroll drives `MIX`, the repaint outward from `LC` (the hands).
-  - **Proof hook:** `window.__scene.renderAt(p)`.
+  - **Proof hooks:** `window.__scene.renderAt(p)`, or `?p=0.9` in the URL to hold the scroll at 90%.
+  - **Phones** (narrow screens) get a smaller brush (×0.6) and about 2.7× the strokes, so faces stay readable at iPhone size.
 - Reduced motion: the painting holds still and simply follows the scroll. No WebGL2: a painted-colour gradient behind the words.
 - `tools/shots.mjs`: screenshots at scroll stops, phone and desktop (`npm i` first). `tools/og.mjs`: renders `public/og.jpg` and prints fps.
 - Deploy: `npx wrangler deploy` (Workers static assets). Plain deploy goes to the workers.dev preview only; solichin.org needs the custom domain attached.

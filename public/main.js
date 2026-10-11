@@ -112,7 +112,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     g = mix(g, mix(vec3(1.,.96,.78), vec3(.92,.90,.80), vn(p*vec2(40.,40.))), moon);
     vec3 col = mix(bg, g, inside);
     dir = normalize(mix(bd, fd, inside*smoothstep(.15, .6, coh)*(1. - plaster)) + 1e-4);
-    DET = mix(DET, mix(1., .3, smoothstep(.12, .7, det)), inside*(1. - plaster*.7));
+    DET = mix(DET, mix(1., .3, smoothstep(.08, .55, det)), inside*(1. - plaster*.7));
     if (inside > .5 && ml < .24) DET = min(DET, .55);
     return col;
   }
@@ -135,7 +135,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     g = mix(g, bg*(.92 + .16*l), plaster);
     vec3 col = mix(bg, g, inside);
     dir = normalize(mix(bd, fd, inside*smoothstep(.15, .6, coh)*(1. - plaster)) + 1e-4);
-    DET = mix(DET, mix(1., .28, smoothstep(.12, .7, det)), inside);
+    DET = mix(DET, mix(1., .28, smoothstep(.08, .55, det)), inside);
     return col;
   }`;
 
@@ -264,8 +264,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     const w = A / vis, h = w / asp; return [A / 2 - fx * w, cy - h / 2, w, h];
   }
   function place() {
-    RN = fit(NA, A < .8 ? .6 : .5, .72, .6);             // night: God, the sun and the moon
-    RD = fit(DA, HANDS[0] + .02, .5, .58);      // day: Adam's face to God's, centred on the hands
+    RN = fit(NA, A < .8 ? .56 : .5, .62, .6);             // night: God, the sun and the moon
+    RD = fit(DA, A < .8 ? .36 : HANDS[0] + .02, .6, .58);      // day: Adam's face to God's, centred on the hands
     LC = [RD[0] + HANDS[0] * RD[2], RD[1] + (1 - HANDS[1]) * RD[3]];
   }
 
@@ -273,8 +273,10 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
   let vao, count = 0;
   function lay() {
     A = canvas.clientWidth / canvas.clientHeight; place();
-    const passes = [[1300, .07, .024], [6000, .04, .014], [7000, .022, .0085]];
-    const k = A * (phone ? .9 : 1);
+    // a narrow screen shows the figures smaller, so it gets a smaller brush (and more strokes to cover)
+    const narrow = A < .8, sm = narrow ? .6 : 1;
+    const passes = [[1300, .07 * sm, .024 * sm], [6000, .04 * sm, .014 * sm], [7000, .022 * sm, .0085 * sm]];
+    const k = A * (narrow ? 1.9 : 1);
     const data = [];
     let seed = 1; const r = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
     for (const [n, len, wid] of passes) {
@@ -313,7 +315,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     ['TN', 'FN', 'TD', 'FD'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
-  let cur = 0, forced = null, last = performance.now(), running = true;
+  const pin = (location.search.match(/[?&]p=([\d.]+)/) || [])[1];   // test hook: ?p=0.9 holds the scroll at 90%
+  let cur = 0, forced = pin ? +pin : null, last = performance.now(), running = true;
   const target = () => { const m = document.documentElement.scrollHeight - innerHeight; return m > 0 ? Math.min(1, Math.max(0, scrollY / m)) : 0; };
   const smooth = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
   function frame(now, once) {
