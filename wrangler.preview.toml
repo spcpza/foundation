@@ -1,0 +1,8 @@
+# Preview of the site at preview.solichin.org (workers.dev is blocked by some Indonesian ISPs).
+name = "solichin-preview"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "preview.solichin.org", custom_domain = true }]
+
+[assets]
+directory = "./public"
