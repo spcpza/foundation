@@ -1,7 +1,7 @@
 /* solichin.org — a living painting.
    Thousands of brushstrokes, painted live in WebGL2, each one laid along the current of the picture
    the way Van Gogh laid his. It opens on a starry night; scrolling repaints the canvas stroke by stroke
-   into the Sower's dawn — a great sun over the furrows. A foundation for tomorrow.
+   into a harvest at dawn — many hands at work under a great sun. A foundation for tomorrow.
    No images: everything is generated, so it is sharp at any size. */
 
 const root = document.documentElement;
@@ -33,12 +33,11 @@ function activate() {
 activate();
 addEventListener('scroll', activate, { passive: true });
 addEventListener('resize', activate, { passive: true });
-document.getElementById('year').textContent = new Date().getFullYear();
 const ready = () => requestAnimationFrame(() => root.classList.add('ready'));
 
 /* ---------------- the painting ---------------- */
 const canvas = document.getElementById('scene');
-const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false });
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, depth: true });
 if (!gl) { root.classList.add('no-gl'); ready(); }
 else paint(gl);
 
@@ -105,56 +104,102 @@ function paint(gl) {
     return col;
   }
 
-  // ---- II. the sower's dawn ----
+  // ---- II. the harvest: many hands at work in the field ----
+  // one labourer, feet at the origin, height 1, facing +x. pose: 0 reaping (bent), 1 gleaning (stooped, skirt),
+  // 2 carrying a sheaf on the shoulder, 3 kneeling to bind a sheaf. Returns the distance; c = what is painted there.
+  float person(vec2 q, int pose, vec3 shirt, out vec3 c){
+    vec3 TROUSER = vec3(.13,.17,.40), SKIN = vec3(.78,.50,.30), STRAW = vec3(.96,.80,.36), SHEAF = vec3(.95,.70,.20);
+    float t, l = 1e3, h, s = 1e3, w = 1e3;   // torso, legs, head/hat, sheaf
+    if (pose == 0) {
+      l = min(seg(q, vec2(-.10,.0), vec2(-.02,.42), .05), seg(q, vec2(.12,.0), vec2(.04,.42), .05));
+      t = seg(q, vec2(.0,.42), vec2(.34,.64), .09);
+      t = min(t, min(seg(q, vec2(.30,.62), vec2(.40,.30), .036), seg(q, vec2(.34,.62), vec2(.50,.34), .036)));
+      h = min(length(q - vec2(.45,.63)) - .07, length((q - vec2(.47,.68))*vec2(.7,2.4)) - .1);
+      s = seg(q, vec2(.42,.30), vec2(.56,.22), .02);                       // the sickle hand, in the wheat
+    } else if (pose == 1) {
+      l = min(seg(q, vec2(-.02,.04), vec2(.04,.40), .09), seg(q, vec2(.08,.04), vec2(.05,.38), .09));   // a long skirt
+      t = seg(q, vec2(.03,.42), vec2(.28,.66), .09);
+      t = min(t, seg(q, vec2(.24,.62), vec2(.36,.10), .035));               // reaching for the fallen ears
+      h = min(length(q - vec2(.36,.70)) - .068, length((q - vec2(.33,.73))*vec2(1.,1.3)) - .08);
+      s = seg(q, vec2(.36,.10), vec2(.42,.05), .025);
+    } else if (pose == 2) {
+      l = min(seg(q, vec2(-.10,.0), vec2(.0,.46), .05), seg(q, vec2(.12,.0), vec2(.03,.46), .05));
+      t = seg(q, vec2(.01,.46), vec2(.03,.82), .09);
+      t = min(t, seg(q, vec2(.05,.80), vec2(.14,.98), .035));
+      h = min(length(q - vec2(.04,.94)) - .07, length((q - vec2(.04,.99))*vec2(.7,2.6)) - .1);
+      w = length((q - vec2(.10,1.04))*vec2(1.,3.)) - .2;                   // the sheaf on his shoulder
+    } else {
+      l = min(seg(q, vec2(-.14,.03), vec2(.10,.03), .05), seg(q, vec2(.10,.04), vec2(.05,.30), .055));
+      t = seg(q, vec2(.04,.30), vec2(.16,.60), .09);
+      t = min(t, seg(q, vec2(.16,.56), vec2(.34,.32), .035));
+      h = min(length(q - vec2(.22,.68)) - .068, length((q - vec2(.23,.73))*vec2(.7,2.4)) - .095);
+      w = length((q - vec2(.40,.26))*vec2(2.6,1.)) - .26;                  // the sheaf being bound
+    }
+    float d = min(min(t, l), min(min(h, s), w));
+    c = d == w ? SHEAF : d == h ? (q.y > (pose == 2 ? .97 : pose == 3 ? .71 : .66) || pose == 1 ? STRAW : SKIN) : d == s ? SKIN : d == l ? (pose == 1 ? vec3(.62,.30,.20) : TROUSER) : shirt;
+    return d;
+  }
+
   vec3 dawn(vec2 p, out vec2 dir){
-    float hz = .42;
-    vec2 sc = vec2(A*.5, .655); float R = .115*max(.8, W()); vec2 d = p - sc; float L = length(d);
+    float hz = .56, cut = .38 + .012*sin(p.x*23.) + .008*sin(p.x*61.);   // horizon, and the line the reapers have reached
+    vec2 sc = vec2(A*.5, .8); float R = .075*max(.85, W()); vec2 d = p - sc; float L = length(d);
     float n = fbm(p*vec2(6., 9.));
     vec3 col;
-    if (p.y > hz + .055) {
-      col = mix(vec3(.93,.84,.38), vec3(.60,.70,.42), smoothstep(R, .75, L));
-      col += .07*sin(L*95. - n*2.) * vec3(1.,.9,.5);
-      col = mix(col, vec3(.98,.95,.62), exp(-pow((L-R*1.25)/(R*.18), 2.))*.6);
-      col = mix(col, mix(vec3(1.,.97,.62), vec3(1.,.80,.20), smoothstep(0., R, L)), smoothstep(R, R*.97, L));
+    float hills = hz + .03 + .02*sin(p.x/W()*5.+1.) + .012*sin(p.x/W()*13.);
+    if (p.y > hills) {
+      // the sun, its rings, and loose summer weather further out
+      col = mix(vec3(.94,.86,.42), vec3(.62,.74,.50), smoothstep(R, .6, L));
+      col += .06*sin(L*110. - n*2.) * vec3(1.,.9,.5) * smoothstep(.5, .1, L);
+      col = mix(col, vec3(.99,.96,.66), exp(-pow((L-R*1.3)/(R*.2), 2.))*.6);
+      col = mix(col, mix(vec3(1.,.97,.66), vec3(1.,.80,.22), smoothstep(0., R, L)), smoothstep(R, R*.96, L));
       dir = normalize(perp(d) + 1e-4);
-      dir = normalize(mix(dir, normalize(d+1e-4), smoothstep(R*1.6, R*1.05, L)*.85));   // rays at the rim
+      dir = normalize(mix(dir, normalize(d+1e-4), smoothstep(R*1.6, R*1.05, L)*.85));
       vec2 loose = vec2(1., .45*sin(p.x*7. + p.y*11.) + .3*(n-.5));
-      dir = normalize(mix(dir, loose, smoothstep(R*2.6, R*4.4, L)));                      // far sky: weather, not rings
-      col = mix(col, col + vec3(-.06,.04,.08)*(n-.4), smoothstep(R*2.6, R*4.4, L));
-    } else if (p.y > hz - .02) {
-      // a band of ripe wheat at the horizon
-      col = mix(vec3(.80,.55,.10), vec3(.98,.82,.32), n);
-      dir = vec2(.25*sin(p.x*60.), 1.);
+      dir = normalize(mix(dir, loose, smoothstep(R*2.6, R*4.6, L)));
+      col = mix(col, col + vec3(-.06,.05,.09)*(n-.4), smoothstep(R*2.6, R*4.6, L));
+    } else if (p.y > hz) {
+      // blue hills far off
+      col = mix(vec3(.30,.40,.66), vec3(.48,.56,.78), n);
+      dir = vec2(1., .2*sin(p.x*9.));
+    } else if (p.y > cut) {
+      // standing wheat, still to be cut
+      col = mix(vec3(.86,.62,.14), vec3(1.,.86,.38), n);
+      col = mix(col, vec3(.70,.44,.10), smoothstep(.6, .9, vn(p*vec2(40., 8.)))*.5);
+      dir = vec2(.22*sin(p.x*50. + p.y*9.), 1.);
     } else {
-      // furrows running to the sun, violet and orange
+      // the cut stubble, ochre with violet shadow, in rows running back to the wheat
       vec2 vp = vec2(A*.5, hz);
       dir = normalize(p - vp + vec2(0., -1e-3));
       float ang = atan(p.x - vp.x, vp.y - p.y + .02);
-      float s = fract(ang*12. + n*.4);
-      col = s < .34 ? mix(vec3(.88,.42,.14), vec3(.98,.62,.22), n) : mix(vec3(.20,.21,.52), vec3(.40,.36,.74), n);
-      col *= .82 + .3*smoothstep(0., hz, p.y);
+      float s = fract(ang*16. + n*.5);
+      col = s < .26 ? mix(vec3(.40,.34,.68), vec3(.52,.44,.78), n) : mix(vec3(.86,.56,.20), vec3(.98,.74,.32), n);
+      col *= .84 + .24*smoothstep(0., cut, p.y);
     }
-    // the sower: striding across the furrows, flinging seed toward the sun
-    vec2 o = vec2(X(.3), .2); float S = .36;                      // feet at o, height S
-    vec2 q = (p - o)/S;
-    float body = 1e3;
-    body = min(body, seg(q, vec2(.02,.62), vec2(.06,.30), .085));    // torso, leaning into the stride
-    body = min(body, seg(q, vec2(.06,.32), vec2(-.17,.02), .055));   // back leg
-    body = min(body, seg(q, vec2(.06,.32), vec2(.25,.03), .055));    // front leg, striding
-    body = min(body, seg(q, vec2(.02,.58), vec2(-.22,.40), .04));    // throwing arm, swept back
-    body = min(body, seg(q, vec2(.04,.56), vec2(.17,.44), .045));    // arm holding the seed bag
-    body = min(body, length((q - vec2(.15,.40))*vec2(1.,1.3)) - .075);   // the bag
-    body = min(body, length(q - vec2(.0,.74)) - .065);               // head
-    body = min(body, length((q - vec2(.0,.785))*vec2(.6,3.4)) - .08);   // hat brim
-    if (body < 0.) {
-      col = mix(vec3(.06,.07,.20), vec3(.15,.15,.36), n*.7);
-      col = mix(col, vec3(.95,.62,.25), smoothstep(-.03, 0., body)*.55);   // the sun catching his edge
-      dir = q.y > .76 ? vec2(1., .05) : vec2(.15, 1.); DET = q.y > .76 ? .3 : .38;   // the hat brim is laid flat
+    // sheaves stood up in stooks across the stubble
+    vec3 K[5]; K[0]=vec3(.30,.27,.075); K[1]=vec3(.57,.30,.065); K[2]=vec3(.80,.285,.06); K[3]=vec3(.05,.33,.05); K[4]=vec3(.93,.34,.045);
+    for (int i = 0; i < 5; i++) { vec2 q = (p - vec2(X(K[i].x), K[i].y))/K[i].z;
+      if (q.y > 0. && q.y < 1.25 && abs(q.x) < .42*pow(max(0., 1.3 - q.y), .55)) {
+        col = mix(vec3(.90,.62,.18), vec3(1.,.84,.40), vn(p*vec2(30., 80.))); col = mix(col, vec3(.55,.33,.10), smoothstep(.2, .5, abs(q.x))*.5);
+        dir = vec2(.3*q.x, 1.); DET = .55; } }
+    // the labourers: x, feet y, height, pose — far ones small near the hills, near ones large
+    vec4 F[11];
+    F[0]=vec4(.10,.525,.06,0.); F[1]=vec4(.30,.52,.055,1.); F[2]=vec4(.84,.53,.055,2.);
+    F[3]=vec4(.20,.375,.13,0.); F[4]=vec4(.47,.385,.12,3.); F[5]=vec4(.70,.37,.14,0.); F[6]=vec4(.93,.39,.11,1.);
+    F[7]=vec4(.08,.19,.22,2.); F[8]=vec4(.38,.15,.25,1.); F[9]=vec4(.64,.20,.22,0.); F[10]=vec4(.90,.12,.24,3.);
+    for (int i = 0; i < 11; i++) {
+      if (A < .8 && (i == 1 || i == 4 || i == 6)) continue;          // a narrow canvas holds fewer people
+      float S = F[i].z * (.5 + .5*W()); vec2 o = vec2(X(F[i].x), F[i].y);
+      if (abs(p.x - o.x) > S*.75 + .05 || p.y < o.y - .05*S - .05 || p.y > o.y + 1.2*S + .05) continue;
+      float flip = mod(float(i), 2.) < .5 ? 1. : -1.;
+      vec2 q = (p - o)/S; q.x *= flip;
+      vec3 shirt = mod(float(i), 3.) < 1. ? vec3(.92,.90,.82) : mod(float(i), 3.) < 2. ? vec3(.22,.36,.70) : vec3(.30,.48,.78);
+      vec3 c; float dd = person(q, int(F[i].w), shirt, c);
+      if (dd < 0.) {
+        col = c * (.85 + .25*vn(p*vec2(90., 90.)));
+        col = mix(col, vec3(1.,.78,.34), smoothstep(-.025, 0., dd)*.35);   // the sun along their edges
+        dir = vec2(.12*flip, 1.); DET = clamp(S*1.6, .2, .4);
+      } else DET = min(DET, mix(clamp(S*2.2, .25, .55), 1., smoothstep(0., .045, dd*S)));   // big brushes keep clear of people
     }
-    if (body < .05 && body >= 0.) DET = min(DET, .55);              // and a careful edge around him
-    // seed flung from his hand, small gold strokes in an arc
-    vec2 sd = q - vec2(-.42, .30); float arc = abs(length(sd*vec2(1.,1.6)) - .2);
-    if (arc < .025 && q.x < -.2 && q.y > .2 && h21(floor(p*vec2(260.,260.))) > .55) { col = vec3(1.,.82,.32); dir = normalize(perp(sd)); }
     return col;
   }`;
 
@@ -171,7 +216,7 @@ function paint(gl) {
     vec2 p = base * vec2(A, 1.);
     vec2 dn, dd; DET = 1.; vec3 cn = night(p, dn); float detN = DET; DET = 1.; vec3 cd = dawn(p, dd); float detD = DET;
     // repaint order: outward from the sun, ragged like a hand at work
-    float order = .5*rnd.x + .5*clamp(length(p - vec2(A*.5, .655))/1.1, 0., 1.);
+    float order = .5*rnd.x + .5*clamp(length(p - vec2(A*.5, .8))/1.1, 0., 1.);
     float k = smoothstep(order - .05, order + .05, MIX*1.12 - .03);
     vec2 dir = normalize(mix(normalize(dn+1e-4), normalize(dd+1e-4), k) + 1e-4);
     vec3 col = mix(cn, cd, k);
@@ -187,7 +232,7 @@ function paint(gl) {
     float wob = .06 * sin(T*.9 + rnd.y*6.28) * BOIL;
     dir = mat2(cos(wob), sin(wob), -sin(wob), cos(wob)) * dir;
     vec2 q = p + drift*det + (dir*corner.x*size.x + perp(dir)*corner.y*size.y)*det;
-    gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., 0., 1.);
+    gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., det*.9 - .45 + rnd.z*.04, 1.);   // small brushes land on top
     vUv = corner + .5; vCol = col; vSeed = rnd.w;
   }`;
   const FS = `#version 300 es
@@ -198,7 +243,7 @@ function paint(gl) {
   void main(){
     vec4 b = texture(B, vec2(vUv.x, vUv.y*.5 + step(.5, vSeed)*.5));   // two bristle loads
     float a = b.a;
-    if (a < .02) discard;
+    if (a < .3) discard;
     // impasto: bristle ridges catch the light on one side
     vec3 c = vCol * (.82 + .32*b.r) + .07*smoothstep(.35, 1., b.r)*(1. - vUv.y);
     o = vec4(c, a);
@@ -315,10 +360,11 @@ function paint(gl) {
     cur = still || forced !== null ? goal : cur + (goal - cur) * (1 - Math.exp(-dt * 3.2));
     const mix = smooth(.16, .78, cur);
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.disable(gl.BLEND);
+    gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
     gl.useProgram(BG.p); gl.uniform1f(BG.u.A, A); gl.uniform1f(BG.u.MIX, mix);
     gl.bindVertexArray(bgVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(SP.p);
     gl.uniform1f(SP.u.A, A); gl.uniform1f(SP.u.T, still ? 0 : now / 1000); gl.uniform1f(SP.u.MIX, mix); gl.uniform1f(SP.u.BOIL, still ? 0 : 1);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, brush); gl.uniform1i(SP.u.B, 0);

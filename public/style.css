@@ -61,7 +61,8 @@ main{position:relative;z-index:2}
 .verse blockquote{margin:0 0 28px;font-family:var(--serif);font-style:italic;font-size:clamp(1.6rem,4.8vw,3.3rem);line-height:1.12;letter-spacing:-.01em}
 figcaption{color:var(--gold);margin:0}
 
-.close .copy{bottom:max(3vh,env(safe-area-inset-bottom));align-items:stretch}
+.close .copy{align-items:center;text-align:center}
+.coda{margin:0;font-family:var(--roman);font-size:clamp(.8rem,2.6vw,1.05rem);letter-spacing:.42em;text-transform:uppercase;color:var(--fg);padding-left:.42em}
 .wordmark{margin:0 0 4vh;font-family:var(--roman);font-weight:400;font-size:clamp(2.6rem,13vw,11rem);line-height:.9;letter-spacing:.08em;text-shadow:none;
   background:linear-gradient(180deg,#fff6d8 0%,#f1c75b 60%,#c98a2a 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 
