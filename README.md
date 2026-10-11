@@ -2,14 +2,14 @@
 
 The landing page of the Solichin family office: **A foundation for tomorrow.**
 
-**The Cornerstone.** A gold cornerstone floats alone in the dark. As you scroll, ivory stones fall into place around it, course by course, until a foundation stands, and the light turns from night to dawn. Isaiah 28:16: *"a precious corner stone, a sure foundation."*
+**A living painting.** Thousands of brushstrokes are painted live in WebGL2, each laid along the current of the picture the way Van Gogh laid his. The page opens on a starry night: a swirling sky, haloed stars, a crescent moon and a cypress. Scrolling repaints the canvas stroke by stroke, outward from the sun, into the Sower's dawn: a great sun over ripe wheat, violet and orange furrows, and the sower striding toward the light. The type nods to Michelangelo's Rome: Cinzel inscriptional capitals with Cormorant italic. Galatians 6:9 closes the page.
 
-- `public/` is the whole site: plain HTML/CSS plus one ES module (`main.js`) using three.js from jsdelivr. No build step. Preview: `npm run serve` → http://localhost:8787
+- `public/` is the whole site: plain HTML/CSS plus one ES module (`main.js`) with raw WebGL2 and no libraries. No build step, and no images in the painting. Preview: `npm run serve` → http://localhost:8787
 - `main.js` contains:
-  - **Words:** split into spans; one fixed "slide" is active per screen of scroll (`.panel.active`).
-  - **Scene:** spotlight pool, softbox studio env (what the gold reflects), procedural limestone texture, 4 courses in running bond (`W`, `Z`, `COURSES`).
-  - **Motion:** `KEYS` is the camera path over scroll (0..1). Each stone's fall time is spread over 0.10–0.70. The dawn light runs over 0.35–1. Phones stand back (`reach`), and `setViewOffset` lifts the subject above the words.
+  - **`SCENE` (GLSL):** `night(p, dir)` and `dawn(p, dir)` give, for any point, the colour and the direction a brush would travel there. `DET` is the brush size for that spot, smaller for the sower, stars and cypress.
+  - **Strokes:** three passes (underpainting, body, fine), laid on a jittered grid. The brush texture is generated: a loaded head, bristles and a dry tail.
+  - **Motion:** a coherent "wind" drifts each stroke along its own direction. Scroll (0..1) drives `MIX`, which repaints night→dawn stroke by stroke, outward from the sun.
   - **Proof hook:** `window.__scene.renderAt(p)`.
-- Reduced motion: no damping, drift or grain; words shown as-is. No WebGL: a still warm glow behind the words.
+- Reduced motion: the painting holds still and simply follows the scroll. No WebGL2: a painted-colour gradient behind the words.
 - `tools/shots.mjs`: screenshots at scroll stops, phone and desktop (`npm i` first). `tools/og.mjs`: renders `public/og.jpg` and prints fps.
 - Deploy: `npx wrangler deploy` (Workers static assets). Plain deploy goes to the workers.dev preview only; solichin.org needs the custom domain attached.
