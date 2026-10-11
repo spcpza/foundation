@@ -1,5 +1,11 @@
 *,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#17120d;color:#fff;overflow:hidden}
+html,body{margin:0;background:#17120d;color:#fff}
+html{overscroll-behavior:none;scrollbar-width:none}
+html::-webkit-scrollbar{display:none}
+/* the scroll track: its height is how long the flight takes to scroll through */
+.track{height:900vh;height:900svh}
+.still .track{display:none}
+.still,.still body{height:100%;overflow:hidden}
 body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 
 /* letterbox fill (only visible when the painting is narrower than the screen, e.g. desktop) */
@@ -38,3 +44,12 @@ body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,-apple-system,"Segoe
 .drone.on{opacity:1}
 .drone-on .stage{opacity:0;transition:opacity .6s ease 1.2s}
 @media (orientation:landscape){.drone{box-shadow:0 0 80px rgba(0,0,0,.55)}}
+
+/* scroll cue: a thin line that breathes under the words until the first scroll */
+.cue{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:1px;height:38px;margin-left:-.5px;overflow:hidden;
+  background:rgba(255,255,255,.18);transition:opacity .6s ease;pointer-events:none}
+.cue::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:#fff;animation:cue 2.2s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes cue{to{top:100%}}
+.flying .cue,.still .cue{opacity:0}
+.copy{will-change:opacity}
+@media (prefers-reduced-motion:reduce){.cue::after{animation:none}}

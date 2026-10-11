@@ -1,14 +1,15 @@
 /* solichin.org: 2.5D "drone" fly-through.
    The painting becomes a relief: a dense mesh displaced by a depth map (Depth Anything V2),
    with an inpainted far layer behind it so gaps at depth edges show background, not smears.
-   A perspective camera flies a closed spline through Fred's path (dolly, orbit, altitude, roll).
+   A perspective camera flies a closed spline through Fred's path (dolly, orbit, altitude, roll);
+   the page's scroll position (from app.js) is the place on that path.
    Plain WebGL 1, no libraries. If anything fails, the 2D pan in app.js keeps running. */
 (function () {
   'use strict';
   var cam2d = window.__camera; if (!cam2d) return;
   var ASSET = '/img/';
   var DZ = 0.28;               // relief depth (painting is 2 units tall)
-  var LOOP = 36;               // seconds per loop
+  var LOOP = 36;               // path length in 'seconds' (?t= uses it); scroll maps 0..1 onto it
   var FOV = 46 * Math.PI / 180;
   var EDGE = 0.05;             // depth mismatch (0..1) at which the relief is torn open
   var MARGIN = 0.15;           // mesh extends past the frame (clamped texture) so orbits never see void
@@ -171,7 +172,7 @@
   }
 
   // ---------- render ----------
-  var fg, bg, tFg, tBg, vw, vh, dpr, qual = 1;
+  var fg, bg, tFg, tBg, vw, vh, dpr, qual = 1;   // renders only on scroll, so no frame-time governor
   function resize() {
     dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * qual);
     vh = window.innerHeight;
@@ -202,24 +203,9 @@
     draw(fg, tFg, EDGE);          // relief: torn open at depth edges, revealing the far layer
   }
 
-  var running = false, raf = 0, t0 = null, elapsed = 0, last = 0, slow = [];
   var frozen = (location.search.match(/[?&]t=([\d.]+)/) || [])[1];
-  function frame(now) {
-    if (!running) return;
-    if (t0 === null) t0 = now - elapsed * 1000;
-    elapsed = (now - t0) / 1000;
-    render(frozen !== undefined ? +frozen : elapsed);
-    // adaptive resolution: if a slow phone can't hold ~45 fps, render fewer pixels (down to 1x)
-    if (last) { slow.push(now - last); if (slow.length === 60) {
-      slow.sort(function (a, b) { return a - b; });
-      if (slow[30] > 22 && qual > 0.55) { qual -= 0.2; resize(); }
-      slow = [];
-    } }
-    last = now;
-    raf = requestAnimationFrame(frame);
-  }
-  function start() { if (!running) { running = true; t0 = null; last = 0; slow = []; raf = requestAnimationFrame(frame); } }
-  function stop() { running = false; cancelAnimationFrame(raf); }
+  var lastP = 0;
+  function show(p) { lastP = p; render(frozen !== undefined ? +frozen : p * LOOP); }
 
   Promise.all([
     loadImg([ASSET + 'painting-3d.avif', pick(ASSET + 'painting-3d')]),
@@ -236,15 +222,13 @@
     gl.enableVertexAttribArray(L.p); gl.enableVertexAttribArray(L.uv);
     gl.useProgram(prog); gl.uniform1i(L.t, 0); gl.uniform1i(L.dt, 1);
     prepare(); resize();
-    window.addEventListener('resize', resize, { passive: true });
-    document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
-    render(frozen !== undefined ? +frozen : 0);
+    window.addEventListener('resize', function () { resize(); show(lastP); }, { passive: true });
+    show(cam2d.progress());
     document.querySelector('.scene').appendChild(canvas);
     requestAnimationFrame(function () {   // cross-fade from the flat painting to the 3D flight
-      cam2d.stop(); canvas.classList.add('on'); document.documentElement.classList.add('drone-on');
-      start();
+      cam2d.use(show); canvas.classList.add('on'); document.documentElement.classList.add('drone-on');
     });
-    window.__drone = { render: function (s) { stop(); render(s); }, LOOP: LOOP,
+    window.__drone = { render: function (s) { render(s); }, LOOP: LOOP,
       keyTimes: function () { return starts.map(function (s) { return +(s / total * LOOP).toFixed(2); }); } };
   }).catch(function (e) { if (window.console) console.warn('drone fallback to 2D:', e && e.message); });
 })();

@@ -1,4 +1,4 @@
-/* solichin.org: a slow "drone" camera over the painting plus a scrambled title.
+/* solichin.org: a scroll-driven "drone" camera over the painting plus a scrambled title.
    Only one element (.stage) moves, with translate3d/scale, so it stays on the GPU. */
 (function () {
   'use strict';
@@ -113,33 +113,50 @@
     return { u: cr(a.u, b.u, c.u, d.u, t), v: cr(a.v, b.v, c.v, d.v, t), z: cr(a.z, b.z, c.z, d.z, t) };
   }
 
-  // ---------- camera loop ----------
-  var t0 = null, running = false, raf = 0, videoOn = false, stopped = false;
+  // ---------- scroll-driven camera ----------
+  // The page is a tall track; the scene stays pinned. Scroll position (0..1) is the place on the
+  // flight path, eased so the camera glides after the finger. Nothing renders while nobody scrolls.
+  var copy = document.querySelector('.copy');
   var frozen = (location.search.match(/[?&]t=([\d.]+)/) || [])[1]; // proof hook: ?t=12 freezes the camera
-  function frame(now) {
-    if (!running) return;
-    if (t0 === null) t0 = now;
-    var sec = frozen !== undefined ? parseFloat(frozen) : (now - t0) / 1000;
-    var p = sample((sec % LOOP) / LOOP);
-    place(p.u, p.v, p.z);
-    raf = requestAnimationFrame(frame);
+  var cur = 0, raf = 0, lastT = 0, videoOn = false, hook = null;
+  function target() {
+    if (frozen !== undefined) return (parseFloat(frozen) % LOOP) / LOOP;
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    return max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
   }
-  function startCamera() { if (running) return; running = true; t0 = null; raf = requestAnimationFrame(frame); }
-  function stopCamera() { running = false; cancelAnimationFrame(raf); }
-  window.__camera = { stop: function () { stopCamera(); stopped = true; }, LOOP: LOOP, keyTimes: function () { return starts.map(function (s) { return +(s / total * LOOP).toFixed(2); }); } };
+  function ss(a, b, x) { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); }
+  function apply(p) {
+    if (hook) hook(p); else if (!videoOn) { var q = sample(p); place(q.u, q.v, q.z); }
+    // words: here at the start, gone during the flight, back when the loop lands on its first frame
+    var o = Math.max(1 - ss(0.02, 0.09, p), ss(0.90, 0.98, p));
+    copy.style.opacity = o.toFixed(3);
+    document.documentElement.classList.toggle('flying', p > 0.02);
+  }
+  function tick(now) {
+    var t = target(), dt = lastT ? Math.min(0.1, (now - lastT) / 1000) : 1 / 60;
+    lastT = now;
+    cur += (t - cur) * (1 - Math.exp(-dt * 6));
+    if (Math.abs(t - cur) < 0.0002) cur = t;
+    apply(cur);
+    raf = cur === t ? 0 : requestAnimationFrame(tick);
+    if (!raf) lastT = 0;
+  }
+  function kick() { if (!raf && !still) raf = requestAnimationFrame(tick); }
+  window.__camera = {
+    stop: function () {}, LOOP: LOOP, progress: function () { return cur; },
+    use: function (fn) { hook = fn; apply(cur); }, redraw: function () { apply(cur); },
+    keyTimes: function () { return starts.map(function (s) { return +(s / total * LOOP).toFixed(2); }); }
+  };
 
   function placeStill() { place(STILL.u, STILL.v, STILL.z); }
+  if (still) document.documentElement.classList.add('still');
   layout();
-  if (still) placeStill(); else { var p0 = sample(0); place(p0.u, p0.v, p0.z); }
-  window.addEventListener('resize', function () { layout(); if (!running) placeStill(); }, { passive: true });
-  document.addEventListener('visibilitychange', function () {
-    if (still || videoOn || stopped) return;
-    if (document.hidden) stopCamera(); else startCamera();
-  });
+  if (still) placeStill(); else { cur = target(); apply(cur); }
+  window.addEventListener('resize', function () { layout(); if (still) placeStill(); else apply(cur); }, { passive: true });
+  window.addEventListener('scroll', kick, { passive: true });
 
   function onLoaded() { stage.classList.add('loaded'); }
   if (img.complete && img.naturalWidth) onLoaded(); else img.addEventListener('load', onLoaded);
-  if (!still) startCamera();
 
   // 3D drone fly-through (WebGL). Not loaded for reduced motion / data saver, or when a VIDEO is set.
   if (!still && !VIDEO && !/[?&]flat\b/.test(location.search)) {
@@ -153,7 +170,7 @@
     v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
     v.preload = 'auto'; v.poster = img.currentSrc || img.src; v.src = VIDEO;
     v.addEventListener('playing', function () {
-      videoOn = true; stopCamera(); placeStill(); place(0.5, 0.5, 1); v.classList.add('playing');
+      videoOn = true; place(0.5, 0.5, 1); v.classList.add('playing');
     }, { once: true });
     stage.appendChild(v);
   }
