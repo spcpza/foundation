@@ -1,7 +1,7 @@
 /* solichin.org — a living painting.
    Thousands of brushstrokes, painted live in WebGL2, each one laid along the current of the picture
    the way Van Gogh laid his. It opens on a starry night; scrolling repaints the canvas stroke by stroke
-   into a harvest at dawn — many hands at work under a great sun. A foundation for tomorrow.
+   into the city that hath foundations, whose builder and maker is God (Heb 11:10; Rev 21-22).
    No images: everything is generated, so it is sharp at any size. */
 
 const root = document.documentElement;
@@ -51,50 +51,84 @@ function paint(gl) {
     return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
   float fbm(vec2 p){ return .55*vn(p) + .28*vn(p*2.1+3.1) + .17*vn(p*4.3+7.7); }
   vec2 perp(vec2 d){ return vec2(-d.y, d.x); }
-  float seg(vec2 p, vec2 a, vec2 b, float r){ vec2 pa = p-a, ba = b-a; float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.); return length(pa - ba*h) - r; }
   // where things sit: the composition lives in a centred square on wide screens
   float W(){ return min(A, 1.0); }
   float X(float f){ return A*.5 + (f-.5)*W(); }
+  // the twelve foundation stones of the city, in order (Rev 21:19-20)
+  vec3 gem(int i){
+    vec3 G[12];
+    G[0]=vec3(.42,.70,.56); G[1]=vec3(.14,.30,.80); G[2]=vec3(.62,.72,.84); G[3]=vec3(.08,.62,.36);   // jasper, sapphire, chalcedony, emerald
+    G[4]=vec3(.74,.38,.26); G[5]=vec3(.76,.12,.14); G[6]=vec3(.82,.78,.24); G[7]=vec3(.34,.76,.78);   // sardonyx, sardius, chrysolite, beryl
+    G[8]=vec3(.96,.70,.22); G[9]=vec3(.46,.74,.32); G[10]=vec3(.92,.46,.14); G[11]=vec3(.56,.30,.74); // topaz, chrysoprasus, jacinth, amethyst
+    return G[i];
+  }
+  // the foundation: three courses of great cut stones, each one of the twelve. Same place in both pictures.
+  const float F0 = .385, FH = .04, FTOP = .385 + 3.*.04;
+  bool foundation(vec2 p, out vec3 c, out vec2 dir){
+    float x0 = X(.08), x1 = X(.92);
+    if (p.x < x0 || p.x > x1 || p.y < F0 || p.y > FTOP) return false;
+    float cy = (p.y - F0)/FH, course = floor(cy), bl = .15*W();
+    float bx = (p.x - x0)/bl + mod(course, 2.)*.5, block = floor(bx);
+    c = gem(int(mod(course*5. + block*7. + 3., 12.)));
+    float fy = fract(cy), fx = fract(bx);
+    c *= .78 + .38*smoothstep(.0, .9, fy);                                    // lit from above, shadowed at the foot
+    c = mix(c, vec3(1.,.98,.92), smoothstep(.82, .97, fy)*.35);               // the bevel catching the light
+    c = mix(c, c*1.35 + .08, smoothstep(.06, .0, abs(fx - .3 - .2*fy))*.5);  // a polished glint across the face
+    float edge = min(min(fx, 1. - fx)*bl, min(fy, 1. - fy)*FH);
+    c = mix(vec3(.08,.07,.16), c, smoothstep(.0015, .0045, edge));            // dark joints between the stones
+    dir = vec2(1., .06*sin(p.x*40. + course));
+    return true;
+  }
+  float seg(vec2 p, vec2 a, vec2 b, float r){ vec2 pa = p-a, ba = b-a; float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.); return length(pa - ba*h) - r; }
 
-  // ---- I. the starry night ----
+  // ---- I. the night: the foundations laid, under the bright and morning star (Rev 22:16) ----
   vec3 night(vec2 p, out vec2 dir){
-    float hz = .29 + .035*sin(p.x/W()*6.+.5) + .018*sin(p.x/W()*15.);
+    float hz = .41 + .03*sin(p.x/W()*6.+.5) + .015*sin(p.x/W()*15.);
     float n = fbm(p*vec2(5., 9.));
     vec3 col; dir = vec2(1., .18*sin(p.x/W()*5.+1.));
+    vec2 mc = vec2(A*.5, .655);                                     // where the morning star stands
     if (p.y > hz) {
-      col = mix(vec3(.07,.13,.38), vec3(.20,.34,.66), clamp((p.y-hz)*.9 + .35*n, 0., 1.));
-      // the great swirl
-      float line = .6 + .07*sin(p.x/W()*4.6 + .8);
-      float band = exp(-pow((p.y-line)/.075, 2.));
+      col = mix(vec3(.07,.13,.38), vec3(.20,.34,.66), clamp((p.y-hz)*1.1 + .35*n, 0., 1.));
+      // the great swirl, high in the sky
+      float line = .82 + .05*sin(p.x/W()*4.6 + .8);
+      float band = exp(-pow((p.y-line)/.06, 2.));
       col = mix(col, vec3(.48,.64,.86), band*.75*(.6+.6*n));
       dir += vec2(0., .5*cos(p.x/W()*4.6+.8)) * band;
-      vec2 V[2]; V[0] = vec2(X(.42), .6); V[1] = vec2(X(.66), .64);
-      float R[2]; R[0] = .13; R[1] = .085;
+      vec2 V[2]; V[0] = vec2(X(.30), .8); V[1] = vec2(X(.70), .84);
+      float R[2]; R[0] = .09; R[1] = .07;
       for (int i = 0; i < 2; i++) { vec2 d = p - V[i]; float L = length(d);
         float w = exp(-L*L/(R[i]*R[i]*1.6)); dir += 5.*w*normalize(perp(d)+1e-4);
         float ring = exp(-pow((L - R[i]*.62)/(R[i]*.22), 2.)); col = mix(col, vec3(.62,.76,.93), ring*.75);
         col = mix(col, vec3(.16,.27,.58), exp(-L*L/(R[i]*R[i]*.08))*.8); }
-      // stars, each with a halo the strokes circle
-      vec3 S[7]; S[0]=vec3(.12,.88,.028); S[1]=vec3(.30,.74,.022); S[2]=vec3(.52,.86,.03); S[3]=vec3(.88,.62,.026);
-      S[4]=vec3(.20,.56,.02); S[5]=vec3(.72,.82,.024); S[6]=vec3(.95,.92,.02);
+      // seven stars (Rev 1:20)
+      vec3 S[7]; S[0]=vec3(.10,.93,.02); S[1]=vec3(.22,.66,.018); S[2]=vec3(.50,.93,.022); S[3]=vec3(.86,.66,.02);
+      S[4]=vec3(.36,.56,.015); S[5]=vec3(.66,.55,.016); S[6]=vec3(.94,.91,.018);
       for (int i = 0; i < 7; i++) { vec2 c = vec2(X(S[i].x), S[i].y); float r = S[i].z; vec2 d = p - c; float L = length(d);
         dir += 6.*exp(-L*L/(r*r*7.))*normalize(perp(d)+1e-4);
         col = mix(col, vec3(.93,.93,.72), exp(-pow((L-r*1.9)/(r*.55), 2.))*.85);
         col = mix(col, vec3(1.,.86,.32), smoothstep(r, r*.35, L)); if (L < r*2.6) DET = min(DET, .7); }
-      // the moon: a crescent in its own fire
-      vec2 mc = vec2(X(.84), .87); float mr = .055; vec2 md = p - mc; float ml = length(md);
-      dir += 7.*exp(-ml*ml/(mr*mr*6.))*normalize(perp(md)+1e-4);
-      col = mix(col, vec3(1.,.82,.36), exp(-pow((ml-mr*1.7)/(mr*.5), 2.))*.8);
-      float cres = smoothstep(mr, mr*.85, ml) * smoothstep(mr*.7, mr*.9, length(p - mc - vec2(-mr*.45, mr*.25)));
-      col = mix(col, vec3(1.,.74,.18), cres); if (ml < mr*2.2) DET = min(DET, .65);
+      // the morning star: the greatest of the lights, ring upon ring of white fire
+      vec2 md = p - mc; float ml = length(md);
+      col = mix(col, vec3(.55,.70,.95), exp(-ml*ml/.02)*.45);
+      col = mix(col, vec3(.90,.94,.98), exp(-pow((ml-.075)/.016, 2.))*.8);
+      col = mix(col, vec3(.98,.96,.80), exp(-pow((ml-.045)/.011, 2.))*.9);
+      col = mix(col, vec3(1.,1.,.94), smoothstep(.026, .012, ml));
+      dir = normalize(mix(dir, perp(md), exp(-ml*ml/.03)) + 1e-4);
+      if (ml < .11) DET = min(DET, mix(.5, 1., ml/.11));
     } else {
-      // hills and a sleeping village
-      col = mix(vec3(.05,.11,.17), vec3(.17,.27,.30), n*.8 + (p.y/hz)*.3);
-      dir = vec2(1., .35*sin(p.x/W()*9. + p.y*24.));
-          }
+      // the dark earth the foundations are laid in
+      col = mix(vec3(.05,.10,.17), vec3(.15,.24,.28), n*.8 + (p.y/hz)*.3);
+      dir = vec2(1., .3*sin(p.x/W()*9. + p.y*24.));
+    }
+    // the foundations, laid in the night: the jewels only catch the starlight
+    vec3 fc; vec2 fd;
+    if (foundation(p, fc, fd)) {
+      float lit = .12 + .42*exp(-pow(length(p - mc)/.35, 2.)) + .12*smoothstep(FTOP - .012, FTOP, p.y);
+      col = mix(vec3(.04,.06,.14), mix(fc, vec3(dot(fc, vec3(.33))), .35), lit); dir = fd; DET = .6;
+    }
     // the cypress, a dark flame from the ground to the stars
-    float cx = X(.13) + .02*sin(p.y*11.) + .008*sin(p.y*37.);
-    float top = .93, wid = .105*W()*pow(max(0., 1. - p.y/top), .55)*(.78 + .22*sin(p.y*46.)) + .012*sin(p.y*23.+p.x*9.);
+    float cx = X(.06) + .02*sin(p.y*11.) + .008*sin(p.y*37.);
+    float top = .95, wid = .1*W()*pow(max(0., 1. - p.y/top), .55)*(.78 + .22*sin(p.y*46.)) + .012*sin(p.y*23.+p.x*9.);
     if (abs(p.x - cx) < wid) {
       float e = abs(p.x - cx)/max(wid, 1e-4);
       col = mix(vec3(.05,.12,.08), vec3(.20,.33,.17), vn(p*vec2(30.,60.))*(1.-e*.5));
@@ -104,102 +138,136 @@ function paint(gl) {
     return col;
   }
 
-  // ---- II. the harvest: many hands at work in the field ----
-  // one labourer, feet at the origin, height 1, facing +x. pose: 0 reaping (bent), 1 gleaning (stooped, skirt),
-  // 2 carrying a sheaf on the shoulder, 3 kneeling to bind a sheaf. Returns the distance; c = what is painted there.
-  float person(vec2 q, int pose, vec3 shirt, out vec3 c){
-    vec3 TROUSER = vec3(.13,.17,.40), SKIN = vec3(.78,.50,.30), STRAW = vec3(.96,.80,.36), SHEAF = vec3(.95,.70,.20);
-    float t, l = 1e3, h, s = 1e3, w = 1e3;   // torso, legs, head/hat, sheaf
-    if (pose == 0) {
-      l = min(seg(q, vec2(-.10,.0), vec2(-.02,.42), .05), seg(q, vec2(.12,.0), vec2(.04,.42), .05));
-      t = seg(q, vec2(.0,.42), vec2(.34,.64), .09);
-      t = min(t, min(seg(q, vec2(.30,.62), vec2(.40,.30), .036), seg(q, vec2(.34,.62), vec2(.50,.34), .036)));
-      h = min(length(q - vec2(.45,.63)) - .07, length((q - vec2(.47,.68))*vec2(.7,2.4)) - .1);
-      s = seg(q, vec2(.42,.30), vec2(.56,.22), .02);                       // the sickle hand, in the wheat
-    } else if (pose == 1) {
-      l = min(seg(q, vec2(-.02,.04), vec2(.04,.40), .09), seg(q, vec2(.08,.04), vec2(.05,.38), .09));   // a long skirt
-      t = seg(q, vec2(.03,.42), vec2(.28,.66), .09);
-      t = min(t, seg(q, vec2(.24,.62), vec2(.36,.10), .035));               // reaching for the fallen ears
-      h = min(length(q - vec2(.36,.70)) - .068, length((q - vec2(.33,.73))*vec2(1.,1.3)) - .08);
-      s = seg(q, vec2(.36,.10), vec2(.42,.05), .025);
-    } else if (pose == 2) {
-      l = min(seg(q, vec2(-.10,.0), vec2(.0,.46), .05), seg(q, vec2(.12,.0), vec2(.03,.46), .05));
-      t = seg(q, vec2(.01,.46), vec2(.03,.82), .09);
-      t = min(t, seg(q, vec2(.05,.80), vec2(.14,.98), .035));
-      h = min(length(q - vec2(.04,.94)) - .07, length((q - vec2(.04,.99))*vec2(.7,2.6)) - .1);
-      w = length((q - vec2(.10,1.04))*vec2(1.,3.)) - .2;                   // the sheaf on his shoulder
-    } else {
-      l = min(seg(q, vec2(-.14,.03), vec2(.10,.03), .05), seg(q, vec2(.10,.04), vec2(.05,.30), .055));
-      t = seg(q, vec2(.04,.30), vec2(.16,.60), .09);
-      t = min(t, seg(q, vec2(.16,.56), vec2(.34,.32), .035));
-      h = min(length(q - vec2(.22,.68)) - .068, length((q - vec2(.23,.73))*vec2(.7,2.4)) - .095);
-      w = length((q - vec2(.40,.26))*vec2(2.6,1.)) - .26;                  // the sheaf being bound
-    }
-    float d = min(min(t, l), min(min(h, s), w));
-    c = d == w ? SHEAF : d == h ? (q.y > (pose == 2 ? .97 : pose == 3 ? .71 : .66) || pose == 1 ? STRAW : SKIN) : d == s ? SKIN : d == l ? (pose == 1 ? vec3(.62,.30,.20) : TROUSER) : shirt;
+  // a pilgrim in a white robe with a palm branch raised (Rev 7:9), walking toward the city; feet at 0, height 1
+  float pilgrim(vec2 q, float stride, out vec3 c){
+    // a white robe (Rev 7:9): narrow at the shoulders, falling wide to the hem, a gold sash at the waist
+    float hw = .085 + .075*clamp(1. - q.y/.66, 0., 1.) + .01*sin(q.y*30.)*stride;
+    float robe = max(abs(q.x - .02*q.y) - hw, max(-q.y, q.y - .66));
+    robe = min(robe, seg(q, vec2(-.05,.60), vec2(.09,.60), .06));         // shoulders
+    float arm = seg(q, vec2(.08,.60), vec2(.17,.86), .042);
+    float head = length(q - vec2(.03,.78)) - .09;
+    float stem = seg(q, vec2(.17,.84), vec2(.22,1.26), .02);
+    float frond = 1e3;                                                    // the palm branch: leaves along the stem
+    for (int k = 0; k < 5; k++) { float t = float(k)/4.; vec2 a = mix(vec2(.18,.94), vec2(.22,1.26), t);
+      frond = min(frond, min(seg(q, a, a + vec2(.13, -.05 + .02*t), .022), seg(q, a, a + vec2(-.10, -.05 + .02*t), .022))); }
+    float palm = min(stem, frond);
+    float d = min(min(robe, arm), min(palm, head));
+    if (d == palm) c = vec3(.30,.70,.26);
+    else if (d == head) c = q.y > .8 || q.x < .0 ? vec3(.22,.14,.10) : vec3(.86,.60,.40);   // dark hair, face to the light
+    else c = abs(q.y - .42) < .025 && d == robe ? vec3(.98,.78,.30) : vec3(1.,.99,.96);
     return d;
   }
 
+  // ---- II. the morning: the city that hath foundations (Heb 11:10; Rev 21-22) ----
+  // a box with a dark painted contour, Van Gogh's way with buildings; returns 1 inside, sets the edge distance
+  float box(vec2 p, vec2 lo, vec2 hi, out float edge){
+    vec2 a = p - lo, b = hi - p; edge = min(min(a.x, b.x), min(a.y, b.y)); return step(0., edge);
+  }
   vec3 dawn(vec2 p, out vec2 dir){
-    float hz = .56, cut = .38 + .012*sin(p.x*23.) + .008*sin(p.x*61.);   // horizon, and the line the reapers have reached
-    vec2 sc = vec2(A*.5, .8); float R = .075*max(.85, W()); vec2 d = p - sc; float L = length(d);
+    vec2 sc = vec2(A*.5, .655); vec2 d = p - sc; float L = length(d);
     float n = fbm(p*vec2(6., 9.));
+    vec3 INK = vec3(.10,.14,.38);
     vec3 col;
-    float hills = hz + .03 + .02*sin(p.x/W()*5.+1.) + .012*sin(p.x/W()*13.);
-    if (p.y > hills) {
-      // the sun, its rings, and loose summer weather further out
-      col = mix(vec3(.94,.86,.42), vec3(.62,.74,.50), smoothstep(R, .6, L));
-      col += .06*sin(L*110. - n*2.) * vec3(1.,.9,.5) * smoothstep(.5, .1, L);
-      col = mix(col, vec3(.99,.96,.66), exp(-pow((L-R*1.3)/(R*.2), 2.))*.6);
-      col = mix(col, mix(vec3(1.,.97,.66), vec3(1.,.80,.22), smoothstep(0., R, L)), smoothstep(R, R*.96, L));
-      dir = normalize(perp(d) + 1e-4);
-      dir = normalize(mix(dir, normalize(d+1e-4), smoothstep(R*1.6, R*1.05, L)*.85));
-      vec2 loose = vec2(1., .45*sin(p.x*7. + p.y*11.) + .3*(n-.5));
-      dir = normalize(mix(dir, loose, smoothstep(R*2.6, R*4.6, L)));
-      col = mix(col, col + vec3(-.06,.05,.09)*(n-.4), smoothstep(R*2.6, R*4.6, L));
-    } else if (p.y > hz) {
-      // blue hills far off
-      col = mix(vec3(.30,.40,.66), vec3(.48,.56,.78), n);
-      dir = vec2(1., .2*sin(p.x*9.));
-    } else if (p.y > cut) {
-      // standing wheat, still to be cut
-      col = mix(vec3(.86,.62,.14), vec3(1.,.86,.38), n);
-      col = mix(col, vec3(.70,.44,.10), smoothstep(.6, .9, vn(p*vec2(40., 8.)))*.5);
-      dir = vec2(.22*sin(p.x*50. + p.y*9.), 1.);
-    } else {
-      // the cut stubble, ochre with violet shadow, in rows running back to the wheat
-      vec2 vp = vec2(A*.5, hz);
-      dir = normalize(p - vp + vec2(0., -1e-3));
-      float ang = atan(p.x - vp.x, vp.y - p.y + .02);
-      float s = fract(ang*16. + n*.5);
-      col = s < .26 ? mix(vec3(.40,.34,.68), vec3(.52,.44,.78), n) : mix(vec3(.86,.56,.20), vec3(.98,.74,.32), n);
-      col *= .84 + .24*smoothstep(0., cut, p.y);
+    // the sky: no sun, for the city is the light (Rev 21:23); an emerald bow round about (Rev 4:3)
+    col = mix(vec3(1.,.95,.72), vec3(.58,.78,.68), smoothstep(.05, .7, L));
+    col += .06*sin(L*100. - n*2.) * vec3(1.,.9,.6) * smoothstep(.6, .1, L);
+    float bow = exp(-pow((L - .33*max(.85, W()))/.026, 2.)) * smoothstep(sc.y - .06, sc.y + .06, p.y);
+    col = mix(col, vec3(.14,.70,.42), bow*.85);
+    dir = normalize(perp(d) + 1e-4);
+    dir = normalize(mix(dir, vec2(1., .45*sin(p.x*7. + p.y*11.) + .3*(n-.5)), smoothstep(.45, .8, L)));
+    if (bow > .3) DET = .7;
+    // ground on either side
+    if (p.y < F0 + .01) { col = mix(vec3(.40,.62,.24), vec3(.74,.82,.36), n); dir = vec2(.25*sin(p.x*40.), 1.); }
+    // the city
+    float cw = .40*W(), wallTop = FTOP + .085, e, inside = 0.;
+    vec3 GOLD = mix(vec3(.98,.76,.26), vec3(1.,.90,.52), vn(p*vec2(50., 14.)));
+    GOLD = mix(GOLD, vec3(.78,.90,.98), smoothstep(.75, .95, vn(p*vec2(18., 120.)))*.45);   // gold like clear glass
+    // towers behind the wall, the middle one highest
+    for (int i = 0; i < 7; i++) {
+      float f = float(i) - 3., tx = A*.5 + f*.105*W(), tw = (i == 3 ? .05 : .036)*W();
+      float th = wallTop + (i == 3 ? .15 : .055 + .035*(1. - abs(f)/3.) + .02*mod(float(i), 2.));
+      if (box(p, vec2(tx - tw, wallTop - .01), vec2(tx + tw, th), e) > 0.) {
+        inside = 1.; col = GOLD*.95; dir = vec2(.06*sin(p.y*80.), 1.); DET = .4;
+        vec2 wq = (p - vec2(tx, wallTop))/vec2(tw, .02);
+        if (abs(fract(wq.x*1.2 + .5) - .5) < .17 && fract(wq.y) > .35 && fract(wq.y) < .8 && p.y < th - .012) col = vec3(1.,1.,.92);   // lit windows
+        col = mix(INK, col, smoothstep(.0012, .004, e));
+      }
+      // a roof: a pointed top on each tower
+      vec2 rq = p - vec2(tx, th); float rh = tw*(i == 3 ? 2.2 : 1.4);
+      if (rq.y > 0. && rq.y < rh && abs(rq.x) < tw*(1. - rq.y/rh)) {
+        inside = 1.; col = mix(vec3(.96,.62,.20), vec3(1.,.86,.40), vn(p*vec2(70.,70.))); dir = normalize(vec2(sign(rq.x), 1.4)); DET = .45;
+        float re = tw*(1. - rq.y/rh) - abs(rq.x); col = mix(INK, col, smoothstep(.001, .0035, re));
+      }
     }
-    // sheaves stood up in stooks across the stubble
-    vec3 K[5]; K[0]=vec3(.30,.27,.075); K[1]=vec3(.57,.30,.065); K[2]=vec3(.80,.285,.06); K[3]=vec3(.05,.33,.05); K[4]=vec3(.93,.34,.045);
-    for (int i = 0; i < 5; i++) { vec2 q = (p - vec2(X(K[i].x), K[i].y))/K[i].z;
-      if (q.y > 0. && q.y < 1.25 && abs(q.x) < .42*pow(max(0., 1.3 - q.y), .55)) {
-        col = mix(vec3(.90,.62,.18), vec3(1.,.84,.40), vn(p*vec2(30., 80.))); col = mix(col, vec3(.55,.33,.10), smoothstep(.2, .5, abs(q.x))*.5);
-        dir = vec2(.3*q.x, 1.); DET = .55; } }
-    // the labourers: x, feet y, height, pose — far ones small near the hills, near ones large
-    vec4 F[11];
-    F[0]=vec4(.10,.525,.06,0.); F[1]=vec4(.30,.52,.055,1.); F[2]=vec4(.84,.53,.055,2.);
-    F[3]=vec4(.20,.375,.13,0.); F[4]=vec4(.47,.385,.12,3.); F[5]=vec4(.70,.37,.14,0.); F[6]=vec4(.93,.39,.11,1.);
-    F[7]=vec4(.08,.19,.22,2.); F[8]=vec4(.38,.15,.25,1.); F[9]=vec4(.64,.20,.22,0.); F[10]=vec4(.90,.12,.24,3.);
-    for (int i = 0; i < 11; i++) {
-      if (A < .8 && (i == 1 || i == 4 || i == 6)) continue;          // a narrow canvas holds fewer people
-      float S = F[i].z * (.5 + .5*W()); vec2 o = vec2(X(F[i].x), F[i].y);
-      if (abs(p.x - o.x) > S*.75 + .05 || p.y < o.y - .05*S - .05 || p.y > o.y + 1.2*S + .05) continue;
-      float flip = mod(float(i), 2.) < .5 ? 1. : -1.;
-      vec2 q = (p - o)/S; q.x *= flip;
-      vec3 shirt = mod(float(i), 3.) < 1. ? vec3(.92,.90,.82) : mod(float(i), 3.) < 2. ? vec3(.22,.36,.70) : vec3(.30,.48,.78);
-      vec3 c; float dd = person(q, int(F[i].w), shirt, c);
-      if (dd < 0.) {
-        col = c * (.85 + .25*vn(p*vec2(90., 90.)));
-        col = mix(col, vec3(1.,.78,.34), smoothstep(-.025, 0., dd)*.35);   // the sun along their edges
-        dir = vec2(.12*flip, 1.); DET = clamp(S*1.6, .2, .4);
-      } else DET = min(DET, mix(clamp(S*2.2, .25, .55), 1., smoothstep(0., .045, dd*S)));   // big brushes keep clear of people
+    // the wall of gold with its battlements
+    float merlon = step(.5, fract((p.x - A*.5)/(.03*W())));
+    if (box(p, vec2(A*.5 - cw, FTOP), vec2(A*.5 + cw, wallTop + .012*merlon), e) > 0.) {
+      inside = 1.; col = GOLD; dir = vec2(1., .05*sin(p.x*60.)); DET = .5;
+      float row = fract((p.y - FTOP)/.017); col *= .92 + .1*smoothstep(.0, .2, row);
+      col = mix(INK, col, smoothstep(.0012, .004, e));
+      // three gates of pearl (Rev 21:21), the middle one open with light
+      for (int g = -1; g <= 1; g++) {
+        float gx = A*.5 + float(g)*.24*W(), gw = (g == 0 ? .04 : .028)*W(), gh = .055;
+        vec2 gq = p - vec2(gx, FTOP);
+        float arch = gq.y < gh - gw ? gw - abs(gq.x) : gw - length(gq - vec2(0., gh - gw));
+        if (arch > 0.) {
+          col = mix(vec3(.93,.91,.96), vec3(1.,.88,.92), vn(p*vec2(90.,90.)));
+          col = mix(col, vec3(.80,.90,1.), smoothstep(.6, .9, vn(p*vec2(40., 140.)))*.5);
+          if (g == 0) col = mix(col, vec3(1.,1.,.94), smoothstep(gw*.15, gw*.8, arch));
+          col = mix(INK, col, smoothstep(.0012, .004, arch));
+          dir = normalize(vec2(gq.x, .6)); DET = .4;
+        }
+      }
     }
+    // the foundations, in full colour now
+    vec3 fc; vec2 fd;
+    if (foundation(p, fc, fd)) { col = fc*1.12; dir = fd; DET = .5; inside = 1.; }
+    // below: the river of life, clear as crystal, flowing out to us (Rev 22:1)
+    if (p.y < F0) {
+      float rx = A*.5 + .025*sin(p.y*12. + 1.) * (1. - p.y/F0);
+      float rw = mix(.30*W(), .03*W(), pow(p.y/F0, .8));
+      float r = abs(p.x - rx)/rw;
+      if (r < 1.) {
+        col = mix(vec3(.66,.86,1.), vec3(.28,.52,.88), vn(p*vec2(26., 60.))*.8);
+        col = mix(col, vec3(1.,.98,.9), smoothstep(.62, 1., vn(p*vec2(50.,140.)))*.6);
+        dir = normalize(vec2((p.x - rx)*1.2, -1.));
+      } else {
+        col = mix(vec3(.36,.60,.22), vec3(.72,.82,.34), n);
+        col = mix(col, vec3(1.,.95,.62), step(.9, vn(p*vec2(110.,110.)))*.6);   // flowers
+        dir = vec2(.25*sin(p.x*40.), 1.);
+        if (r < 1.12) { col = mix(col, vec3(.85,.80,.55), .5); }               // the bank
+      }
+      // trees of life on either side of the river, bearing twelve manner of fruits (Rev 22:2)
+      for (int i = 0; i < 4; i++) {
+        float side = i < 2 ? -1. : 1., k = mod(float(i), 2.);
+        float ty = mix(.30, .20, k), tr = mix(.042, .062, k)*max(.85, W());
+        float tx = A*.5 + side*(mix(.13, .25, k)*W() + .02);
+        vec2 tc = vec2(tx, ty + tr*1.5), tq = p - tc;
+        float crown = length(tq*vec2(.9, 1.)) - tr;
+        if (abs(p.x - tx) < tr*.15 && p.y < tc.y && p.y > ty) { col = vec3(.32,.20,.12); dir = vec2(0., 1.); DET = .5; }
+        if (crown < 0.) {
+          col = mix(vec3(.10,.42,.18), vec3(.42,.72,.26), vn(p*vec2(60.,60.)));
+          float fr = h21(floor(p*vec2(150., 150.)));
+          if (fr > .84) col = gem(int(mod(floor(fr*997.), 12.)));
+          col = mix(INK, col, smoothstep(0., .004, -crown));
+          dir = normalize(perp(tq) + 1e-4); DET = .45;
+        }
+      }
+      // the nations walking in the light of it (Rev 21:24)
+      vec4 P[8];
+      P[0]=vec4(.17,.20,.085,1.); P[1]=vec4(.27,.11,.12,1.); P[2]=vec4(.07,.03,.16,1.); P[3]=vec4(.34,.26,.065,1.);
+      P[4]=vec4(.83,.21,.085,-1.); P[5]=vec4(.73,.11,.12,-1.); P[6]=vec4(.93,.03,.16,-1.); P[7]=vec4(.66,.26,.065,-1.);
+      for (int i = 0; i < 8; i++) {
+        if (A < .8 && (i == 3 || i == 7)) continue;
+        float S = P[i].z * (.5 + .5*W()); vec2 o = vec2(X(P[i].x), P[i].y);
+        if (abs(p.x - o.x) > S*.6 + .05 || p.y < o.y - .05 || p.y > o.y + 1.3*S + .05) continue;
+        vec2 q = (p - o)/S; q.x *= P[i].w;
+        vec3 c; float dd = pilgrim(q, .8 + .4*h21(vec2(float(i), 3.)), c);
+        if (dd < 0.) { col = mix(INK, c*(.92 + .1*vn(p*vec2(90.,90.))), smoothstep(-.0, -.014, dd)); dir = vec2(.1, 1.); DET = clamp(S*2.2, .3, .45); }
+        else DET = min(DET, mix(clamp(S*2.4, .25, .55), 1., smoothstep(0., .04, dd*S)));
+      }
+    }
+    if (inside < .5 && abs(p.x - A*.5) < cw + .03 && p.y > FTOP - .02 && p.y < wallTop + .25) DET = min(DET, .75);
     return col;
   }`;
 
@@ -216,7 +284,7 @@ function paint(gl) {
     vec2 p = base * vec2(A, 1.);
     vec2 dn, dd; DET = 1.; vec3 cn = night(p, dn); float detN = DET; DET = 1.; vec3 cd = dawn(p, dd); float detD = DET;
     // repaint order: outward from the sun, ragged like a hand at work
-    float order = .5*rnd.x + .5*clamp(length(p - vec2(A*.5, .8))/1.1, 0., 1.);
+    float order = .5*rnd.x + .5*clamp(length(p - vec2(A*.5, .655))/1.1, 0., 1.);   // repainted outward from the light
     float k = smoothstep(order - .05, order + .05, MIX*1.12 - .03);
     vec2 dir = normalize(mix(normalize(dn+1e-4), normalize(dd+1e-4), k) + 1e-4);
     vec3 col = mix(cn, cd, k);
@@ -256,9 +324,12 @@ function paint(gl) {
   in vec2 vp; uniform float MIX; out vec4 o;
   ${SCENE}
   void main(){
-    vec2 d1, d2; vec3 c = mix(night(vp, d1), dawn(vp, d2), smoothstep(.15, .9, MIX));
+    vec2 d1, d2; float m = smoothstep(.15, .9, MIX);
+    DET = 1.; vec3 cn = night(vp, d1); float dn = DET; DET = 1.; vec3 cd = dawn(vp, d2); float dd = DET;
+    vec3 c = mix(cn, cd, m);
+    float fine = 1. - smoothstep(.4, .75, mix(dn, dd, m));     // where a small brush works, the ground beneath is already painted
     float weave = .5 + .5*sin(vp.x*900.)*sin(vp.y*900.);                 // the canvas showing through
-    o = vec4(c*.62 + vec3(.05,.04,.03)*weave, 1.);
+    o = vec4(c*mix(.62, .97, fine) + vec3(.05,.04,.03)*weave*(1. - fine), 1.);
   }`;
 
   function prog(vs, fs) {
