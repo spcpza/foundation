@@ -1,0 +1,78 @@
+:root{
+  --ink:#0c0907; --ink-2:#14100c; --ivory:#efe6d6; --muted:#9a8c78; --gold:#d8b676; --light:#fff3d6;
+  --serif:"Cormorant Garamond","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --gut:max(24px,6vw);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--ink);color:var(--ivory);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ink);font-family:var(--serif);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--gold);color:var(--ink)}
+
+/* small caps label used by the masthead and footer */
+.mark,.kind,.foot span,cite{font-family:var(--sans);font-size:11px;letter-spacing:.32em;text-transform:uppercase;font-style:normal}
+
+.mast{position:fixed;z-index:5;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+  padding:max(22px,env(safe-area-inset-top)) var(--gut) 0;pointer-events:none;mix-blend-mode:difference;color:#e9e2d6}
+.mast .kind{opacity:.6}
+
+/* ---------- 1. the reveal ---------- */
+.reveal{position:relative;height:320vh;height:320svh}
+.frame{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ink)}
+.art{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.art img{display:block;width:100%;height:100%}
+/* darkness with a hole around the light; app.js widens the hole as you scroll */
+.veil{position:absolute;inset:0;pointer-events:none}
+/* the light itself: a soft bloom that breathes */
+.glow{position:absolute;left:0;top:0;width:44vmin;height:44vmin;margin:-22vmin 0 0 -22vmin;border-radius:50%;pointer-events:none;mix-blend-mode:screen;
+  background:radial-gradient(circle,rgba(255,250,236,.7) 0,rgba(255,232,180,.22) 5%,rgba(240,186,100,.09) 20%,rgba(200,140,60,0) 52%);
+  animation:breathe 4.8s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.85;scale:.94}50%{opacity:1;scale:1.06}}
+.grain{position:absolute;inset:-50%;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+.headline{position:absolute;left:var(--gut);right:var(--gut);bottom:max(11vh,calc(env(safe-area-inset-bottom) + 56px));margin:0;
+  font-weight:300;font-size:clamp(3rem,13vw,8.5rem);line-height:.92;letter-spacing:-.02em;color:var(--ivory);
+  text-shadow:0 2px 40px rgba(12,9,7,.55)}
+.headline span{display:block}
+.headline span:last-child{font-style:italic;padding-left:.9em}
+.js .headline span{opacity:0;transform:translateY(.25em);transition:opacity 1.4s ease,transform 1.4s cubic-bezier(.2,.7,.2,1)}
+.js .headline.on span{opacity:1;transform:none}
+.js .headline.on span:last-child{transition-delay:.25s}
+
+.cue{position:absolute;left:50%;bottom:max(26px,env(safe-area-inset-bottom));width:1px;height:46px;margin-left:-.5px;overflow:hidden;
+  background:rgba(239,230,214,.16);transition:opacity .8s ease}
+.cue span{position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--ivory);animation:cue 2.4s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes cue{to{top:100%}}
+.cue.off{opacity:0}
+
+@media (orientation:landscape){
+  .headline{font-size:clamp(3rem,8.4vw,9rem);max-width:12ch}
+}
+
+/* ---------- 2. statement ---------- */
+.statement{min-height:100vh;min-height:100svh;display:flex;align-items:center;padding:18vh var(--gut);
+  background:linear-gradient(var(--ink),var(--ink-2) 40%,var(--ink))}
+.read{margin:0 auto;max-width:21ch;font-weight:300;font-size:clamp(2rem,7.4vw,4.6rem);line-height:1.12;letter-spacing:-.01em;text-wrap:balance}
+.js .read .w{opacity:.14;transition:opacity .5s ease,color .5s ease}
+.js .read .w.lit{opacity:1}
+.js .read .w.gold{color:var(--gold);font-style:italic}
+
+/* ---------- 3. verse ---------- */
+.verse{padding:14vh var(--gut) 22vh;text-align:center}
+.rule{display:block;width:1px;height:72px;margin:0 auto 9vh;background:linear-gradient(transparent,var(--gold))}
+.verse blockquote{margin:0 auto;max-width:30ch}
+.verse p{margin:0 0 2.2em;font-style:italic;font-weight:300;font-size:clamp(1.35rem,4.2vw,2.1rem);line-height:1.4;color:#d9cfbf}
+.verse cite{color:var(--gold)}
+
+.foot{display:flex;flex-wrap:wrap;gap:12px 32px;justify-content:space-between;padding:28px var(--gut) max(28px,env(safe-area-inset-bottom));
+  border-top:1px solid rgba(239,230,214,.08);color:var(--muted)}
+.foot .mark{color:var(--ivory)}
+
+/* reduced motion: everything visible and still */
+@media (prefers-reduced-motion:reduce){
+  .glow,.cue span{animation:none}
+  .reveal{height:auto}
+  .frame{position:relative}
+  .js .headline span,.js .read .w{opacity:1;transform:none;transition:none}
+}
