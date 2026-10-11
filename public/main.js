@@ -41,7 +41,7 @@ const canvas = document.getElementById('scene');
 const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, depth: true });
 const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else Promise.all(['/img/night.webp', '/img/night-flow.png', '/img/day.webp', '/img/day-flow.png'].map(load))
+else Promise.all(['/img/night.webp', '/img/night-flow.webp', '/img/day.webp', '/img/day-flow.webp'].map(load))
   .then(ims => paint(gl, ims))
   .catch(() => { root.classList.add('no-gl'); ready(); });
 

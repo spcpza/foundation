@@ -10,7 +10,7 @@ The landing page of a family office. It names no one: the vision is the point.
 The page names no one. Frescoes: Michelangelo, Sistine Chapel ceiling, 1508–12, public domain via Wikimedia Commons (`src/`).
 
 - `public/` is the whole site: plain HTML/CSS plus one ES module (`main.js`) with raw WebGL2 and no libraries. No build step. Preview: `npm run serve` → http://localhost:8787
-- `tools/flow.py <src> <name> <maxw>` prepares a fresco: `public/img/<name>.webp`, plus `<name>-flow.png`. The flow map holds the stroke direction (structure tensor), coherence, the bare-plaster mask (pale areas connected to the edge) and detail (which sets brush size).
+- `tools/flow.py <src> <name> <maxw>` prepares a fresco: `public/img/<name>.webp`, plus `<name>-flow.webp`. The flow map holds the stroke direction (structure tensor), coherence, the bare-plaster mask (pale areas connected to the edge) and detail (which sets brush size).
 - `main.js` contains:
   - **`night()` / `dawn()` (GLSL):** grade each fresco and swap its plaster for a painted world (`starry()` / `sunlit()`).
   - **`fit()`:** places each fresco. Wide screens see all of it; phones see a crop centred on God's face or on the hands.

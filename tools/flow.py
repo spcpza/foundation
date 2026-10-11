@@ -2,7 +2,7 @@
 # each brushstroke which way to travel (along Michelangelo's forms) and how small a brush to use.
 # usage: python3 tools/flow.py <src.jpg> <name> <max width>
 #   -> public/img/<name>.webp   (the picture)
-#   -> public/img/<name>-flow.png  R,G = cos/sin of twice the stroke angle, B = coherence (>.5) or plaster (<.5), A = detail
+#   -> public/img/<name>-flow.webp  R,G = cos/sin of twice the stroke angle, B = coherence (>.5) or plaster (<.5), A = detail
 # Sources (public domain, Wikimedia Commons): Michelangelo, "The Creation of the Sun and Moon" (cropped to God, the sun and the moon) and
 # "The Creation of Adam" (Sistine Chapel ceiling, 1508-12).
 import sys
@@ -57,5 +57,5 @@ print('plaster', round(float(plaster.mean()), 2))
 # B: coherence in the upper half, plaster in the lower (B < .5 means plaster, by how much)
 B = np.where(plaster > .5, .5 - .5 * plaster, .5 + .5 * coh)
 out = np.stack([np.cos(2 * theta) * .5 + .5, np.sin(2 * theta) * .5 + .5, B, detail], 2)
-Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(f'public/img/{name}-flow.png', optimize=True)
+Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(f'public/img/{name}-flow.webp', lossless=True, quality=100, method=6, exact=True)
 print(name, im.size, 'flow', small.size)
