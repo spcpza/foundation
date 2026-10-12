@@ -19,7 +19,7 @@ def blur(a, s):
     a = np.apply_along_axis(lambda v: np.convolve(np.pad(v, r, mode='edge'), k, 'valid'), 0, a)
     return np.apply_along_axis(lambda v: np.convolve(np.pad(v, r, mode='edge'), k, 'valid'), 1, a)
 
-fw = 640 if im.width < 1000 else 720
+fw = round(720 * min(1, im.width / im.height))     # flow map: at most 720 px on its long side
 small = im.resize((fw, round(im.height * fw / im.width)), Image.LANCZOS)
 L = np.asarray(small, dtype=np.float32).mean(2) / 255
 L = blur(L, 1.0)

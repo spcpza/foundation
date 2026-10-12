@@ -2,12 +2,18 @@
 
 The landing page of a family office. It names no one: the vision is the point.
 
-**A living painting: Michelangelo's figures in Van Gogh's hand.** Thousands of brushstrokes are painted live in WebGL2, each laid along the forms of a Sistine Chapel fresco beneath it. The night turns to day (Gen 1:5):
+**A living painting: Michelangelo's world, finished.** Two Sistine Chapel frescoes are grown past Michelangelo's frame into whole paintings, then repainted live in Van Gogh's brushwork, stroke by stroke. Night turns to day (Gen 1:5):
 
-1. **Night: God makes the lights** (*The Creation of the Sun and Moon*, Gen 1:16). God is cut free of the plaster into a whole Starry Night: a swirling sky, small stars, far blue hills, a sleeping village with a church spire, and a cypress. The sun and moon are made whole discs.
-2. **Day: *The Creation of Adam*.** The figures stand in a whole Provençal landscape: clouds, blue mountains, green fields with wheat and olive trees, cypresses at both edges, and grass with poppies. Adam's hill melts into the land. On tall screens the scene is turned so the two hands meet on the diagonal. Scrolling repaints the canvas stroke by stroke, outward from the gap between the two hands, into full daylight. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
+1. **Night: God makes the lights** (*The Creation of the Sun and Moon*, Gen 1:16). The heavens are grown out in clouds, with the sun and moon whole, and graded to night. God stays lit.
+2. **Day: *The Creation of Adam*.** Scrolling repaints the canvas outward from the hands into the whole scene: sky and clouds, Adam's hillside running to the ground, distant blue mountains. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
 
-The page names no one. Frescoes: Michelangelo, Sistine Chapel ceiling, 1508–12, public domain via Wikimedia Commons (`src/`).
+**Growing the frescoes** (`tools/whole.py`, SDXL inpainting run locally):
+- one global pass, so the composition is coherent
+- one unifying pass over the new area plus a band across the old frame edge, so no frame line survives
+- Michelangelo's figures and inner plaster laid back exactly
+- the sun and moon completed from his own halves
+
+Sources: `src/` (public domain, Wikimedia Commons). Results: `src/grown/`.
 
 - `public/` is the whole site: plain HTML/CSS plus one ES module (`main.js`) with raw WebGL2 and no libraries. No build step. Preview: `npm run serve` → http://localhost:8787
 - `tools/flow.py <src> <name> <maxw>` prepares a fresco: `public/img/<name>.webp`, plus `<name>-flow.webp`. The flow map holds the stroke direction (structure tensor), coherence, the bare-plaster mask (pale areas connected to the edge) and detail (which sets brush size).

@@ -3,9 +3,8 @@
    along the forms of the fresco beneath it. Night: God making the sun and the moon (Gen 1:16),
    "the lesser light to rule the night". Scrolling repaints the canvas stroke by stroke, outward from
    the light, into day: the Creation of Adam. The evening and the morning (Gen 1:5).
-   The plaster is lifted away, so the figures stand in a whole painted world: the sun and moon made
-   whole, Adam's hill carried on past the fresco's edge; on tall screens the Creation is turned so
-   the two hands meet on the diagonal.
+   Both frescoes are grown past Michelangelo's frame in his own manner, a window at a time
+   (tools/grow.py, SDXL inpainting run on this machine); each is cut wide for desktops, tall for phones.
    Frescoes: Michelangelo, Sistine Chapel ceiling, 1508-12 (public domain, via Wikimedia Commons). */
 
 const root = document.documentElement;
@@ -43,225 +42,81 @@ const ready = () => requestAnimationFrame(() => root.classList.add('ready'));
 const canvas = document.getElementById('scene');
 const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, depth: true });
 const load = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+// each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
+const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else Promise.all(['/img/night.webp', '/img/night-flow.webp', '/img/day.webp', '/img/day-flow.webp'].map(load))
-  .then(ims => paint(gl, ims))
+else fetch('/img/scene.json').then(r => r.json()).then(meta =>
+  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp`)))
+    .then(ims => paint(gl, ims, meta[shape])))
   .catch(() => { root.classList.add('no-gl'); ready(); });
 
-function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
+function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   // Each picture: its figures cut free of the plaster and placed (see place()), in a painted
   // world around it — a starry night, or a sunlit sky — so any screen shape is a whole picture.
+  // Each picture is one whole painting: Michelangelo's fresco, grown past its frame in his manner.
+  // It covers the screen around its focus; the brush engine repaints it stroke by stroke.
   const SCENE = /* glsl */`
   uniform float A;                       // canvas width / height (height is 1)
-  // where each figure layer sits: (anchor x, anchor y on the canvas, rotation, fresco width on the canvas)
-  uniform vec4 NT, DG, DM;               // night; day God; day man (Adam)
+  uniform vec4 RN, RD;                   // where each painting lies on the canvas: x, y, w, h
+  uniform vec3 MOON;                     // the moon in the night painting: u, v, radius (in widths)
   uniform vec2 LC;                       // the light: between the two hands
-  uniform float HZ;                      // the day's horizon on this screen
-  uniform sampler2D TN, FN, TD, FD;      // frescoes and their flow maps
-  const vec2 NANCH = vec2(.5, .5), HANDS = vec2(.385, .47);
-  const float NASP = 955./717., DASP = 2400./1089.;
+  uniform sampler2D TN, FN, TD, FD;      // paintings and their flow maps
   float DET = 1.;                        // brush size here (small for faces, hands and edges)
   float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
     return mix(mix(h21(i), h21(i+vec2(1,0)), f.x), mix(h21(i+vec2(0,1)), h21(i+vec2(1,1)), f.x), f.y); }
   float fbm(vec2 p){ return .55*vn(p) + .28*vn(p*2.1+3.1) + .17*vn(p*4.3+7.7); }
   vec2 perp(vec2 d){ return vec2(-d.y, d.x); }
-  vec2 rot(vec2 v, float a){ return vec2(cos(a)*v.x - sin(a)*v.y, sin(a)*v.x + cos(a)*v.y); }
   float lum(vec3 c){ return dot(c, vec3(.3,.55,.15)); }
-
-  // canvas point -> fresco uv (0..1, top-left origin) for a placed layer
-  vec2 toUV(vec2 p, vec4 L, vec2 anchor, float asp){
-    vec2 f = rot(p - L.xy, -L.z) / L.w;
-    return vec2(anchor.x + f.x, anchor.y - f.y*asp);
-  }
-  // read a fresco at uv: colour, stroke direction (turned with the layer), coherence, detail, plaster
-  vec3 fresco(sampler2D T, sampler2D F, vec2 uv, float turn, vec2 hint, out vec2 dir, out float coh, out float det, out float plaster){
-    vec2 t2 = clamp(uv, .001, .999);
-    vec4 f = textureLod(F, t2, 0.);
+  vec3 paintAt(sampler2D T, sampler2D F, vec4 R, vec2 p, out vec2 uv, out vec2 dir, out float coh, out float det, out float plaster){
+    uv = clamp(vec2((p.x - R.x)/R.z, 1. - (p.y - R.y)/R.w), .001, .999);
+    vec4 f = textureLod(F, uv, 0.);
     float t = atan(f.g*2. - 1., f.r*2. - 1.)*.5;
-    dir = rot(vec2(cos(t), sin(t)), turn); if (dot(dir, hint) < 0.) dir = -dir;
+    dir = vec2(cos(t), sin(t));
+    vec2 wind = vec2(1., .25*sin(p.x*5. + p.y*7.));
+    if (dot(dir, wind) < 0.) dir = -dir;
     coh = clamp(f.b*2. - 1., 0., 1.); plaster = clamp(1. - f.b*2., 0., 1.); det = f.a;
-    return textureLod(T, t2, 0.).rgb;
+    dir = normalize(mix(wind, dir, smoothstep(.1, .5, coh)) + 1e-4);
+    return textureLod(T, uv, 0.).rgb;
   }
-  float inBox(vec2 uv){ return step(0., uv.x)*step(uv.x, 1.)*step(0., uv.y)*step(uv.y, 1.); }
 
-  // ---- night: God makes the two great lights (Gen 1:16) ----
-  vec3 nightsky(vec2 p, out vec2 dir){
-    float n = fbm(p*vec2(5., 9.));
-    vec3 col = mix(vec3(.04,.07,.24), vec3(.16,.27,.58), clamp(p.y*.85 + .3*n - .15, 0., 1.));
-    dir = vec2(1., .2*sin(p.x*5. + 1.) + .25*(n - .5));
-    float line = .86 + .04*sin(p.x*4.6 + .8), band = exp(-pow((p.y-line)/.05, 2.));
-    col = mix(col, vec3(.40,.55,.84), band*.6*(.6+.6*n));
-    dir += vec2(0., .4*cos(p.x*4.6 + .8))*band;
-    // small stars, scattered like dust
-    vec2 g = floor(p*vec2(38., 38.)); vec2 c = (g + .2 + .6*vec2(h21(g), h21(g+7.)))/38.;
-    float st = step(.86, h21(g + 3.)) * smoothstep(.006, .001, length(p - c));
-    col = mix(col, vec3(1.,.95,.75), st);
-    // far blue hills, then the sleeping village on the near slope
-    float far = .36 + .03*sin(p.x*3.3 + 2.) + .015*sin(p.x*11.);
-    if (p.y < far) { col = mix(vec3(.10,.17,.38), vec3(.20,.29,.52), n); dir = vec2(1., .3*sin(p.x*6. + 1.)); }
-    float hz = .3 + .02*sin(p.x*5. + 1.) + .01*sin(p.x*17.);
-    if (p.y < hz) { col = mix(vec3(.04,.08,.14), vec3(.12,.19,.26), n*(.4 + .6*p.y/hz)); dir = vec2(1., .25*sin(p.x*9. + p.y*30.)); }
-    float cell = .045, cx = floor(p.x/cell), hx = fract(p.x/cell);
-    float has = step(.35, h21(vec2(cx, 9.))), hh = .028 + .02*h21(vec2(cx, 4.)), base = hz - .03 - .02*h21(vec2(cx, 2.));
-    if (has > 0. && hx > .12 && hx < .88) {
-      if (p.y > base && p.y < base + hh) {                                     // a house: wall, lit window
-        col = mix(vec3(.16,.20,.34), vec3(.26,.30,.44), vn(p*vec2(80.,80.)));
-        vec2 w = vec2(fract(hx*3.) , (p.y - base)/hh);
-        if (abs(w.x - .5) < .2 && w.y > .35 && w.y < .7 && h21(vec2(cx, floor(hx*3.))) > .3) col = vec3(1.,.82,.36);
-        dir = vec2(1., 0.); DET = min(DET, .5);
-      }
-      float roof = base + hh, rh = cell*.45*(1. - abs(hx - .5)*2.);           // its roof
-      if (p.y >= roof && p.y < roof + rh) { col = vec3(.28,.22,.30)*(.8 + .4*vn(p*vec2(90.,90.))); dir = normalize(vec2(sign(hx - .5), .8)); DET = min(DET, .5); }
-    }
-    // the church, its spire pointing up into the stars
-    float chx = A*.72, chb = .3 + .02*sin(chx*5. + 1.) - .035;
-    if (abs(p.x - chx) < .022 && p.y > chb && p.y < chb + .07) { col = vec3(.20,.24,.40); dir = vec2(0., 1.); DET = min(DET, .45); }
-    if (p.y >= chb + .07 && p.y < chb + .16 && abs(p.x - chx) < .012*(1. - (p.y - chb - .07)/.09)) { col = vec3(.24,.26,.42); dir = vec2(0., 1.); DET = min(DET, .4); }
-    // a cypress at the edge, a dark flame from the earth to the stars
-    float cyx = A*.06 + .012*sin(p.y*14.), cyw = .065*pow(max(0., 1. - p.y/.88), .5)*(.8 + .2*sin(p.y*40.));
-    if (abs(p.x - cyx) < cyw) { col = mix(vec3(.04,.12,.08), vec3(.18,.30,.16), vn(p*vec2(30.,60.))); dir = vec2(.3*sin(p.y*30.), 1.); DET = min(DET, .7); }
-    return col;
-  }
+  // ---- night: God makes the two great lights (Gen 1:16); the whole painting turned to night ----
   vec3 night(vec2 p, out vec2 dir){
-    vec2 bd; vec3 bg = nightsky(p, bd);
-    vec2 uv = toUV(p, NT, NANCH, NASP);
-    vec2 fd; float coh, det, plaster;
-    vec3 c = fresco(TN, FN, uv, NT.z, bd, fd, coh, det, plaster);
-    float on = inBox(uv)*(1. - plaster);
-    on *= smoothstep(0., .015, min(min(uv.x, 1. - uv.x), min(uv.y, 1. - uv.y)));
+    vec2 uv; float coh, det, plaster;
+    vec3 c = paintAt(TN, FN, RN, p, uv, dir, coh, det, plaster);
     float l = lum(c), sat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
     float warm = smoothstep(.12, .3, sat)*step(c.b, c.g)*step(c.g, c.r);
-    vec3 g = mix(vec3(l), c, 1.35);
-    g = mix(vec3(.05,.07,.22), g*mix(vec3(.88,.76,.94), vec3(1.05,.92,.84), warm), smoothstep(.04, .5, l));
-    vec3 col = mix(bg, g, on);
-    dir = normalize(mix(bd, fd, on*smoothstep(.15, .6, coh)) + 1e-4);
-    DET = mix(DET, mix(1., .3, smoothstep(.08, .55, det)), on);
-    // the two great lights, made whole: the sun burning in rings, the moon in its pale fire
-    vec2 fl = vec2((uv.x - .039), (uv.y - .0)/NASP);   // in fresco widths, y down
-    float sl = length(fl), sr = .215;
-    if (sl < sr*1.5) {
-      float ring = .5 + .5*sin(sl*260.);
-      vec3 sunc = mix(vec3(1.,.62,.12), vec3(1.,.86,.36), ring*.6 + .4*smoothstep(sr, 0., sl));
-      float disc = smoothstep(sr, sr*.97, sl);
-      col = mix(col, vec3(1.,.82,.4), exp(-pow((sl - sr*1.18)/(sr*.12), 2.))*.55);
-      col = mix(col, sunc, disc);
-      if (disc > .5) dir = normalize(perp(rot(vec2(fl.x, -fl.y), NT.z)) + 1e-4);
-      DET = min(DET, .7);
-    }
-    vec2 ml = vec2(uv.x - .921, (uv.y - .318)/NASP); float mr = .125, md = length(ml);
-    if (md < mr*1.9) {
-      col = mix(col, vec3(.70,.80,.98), exp(-pow((md - mr*1.35)/(mr*.18), 2.))*.6);
-      col = mix(col, mix(vec3(.96,.95,.84), vec3(.84,.86,.82), vn(p*vec2(60.,60.))), smoothstep(mr, mr*.94, md));
-      if (md < mr) dir = normalize(perp(rot(vec2(ml.x, -ml.y), NT.z)) + 1e-4);
-      DET = min(DET, .6);
-    }
-    return col;
+    float gold = smoothstep(.3, .5, sat)*step(c.b + .2, c.r);                 // the sun keeps its fire
+    // the heavens sink to deep night blue; God and those with him stay lit by the lights he is making
+    float sky = smoothstep(.15, .7, plaster);           // only the open heavens, joined to the picture's edges (never a robe's highlight)
+    vec3 lit = mix(vec3(l), c, 1.25)*mix(vec3(.95,.86,.98), vec3(1.06,.95,.86), warm);
+    vec3 nightc = mix(vec3(.04,.07,.24), vec3(.26,.36,.68), smoothstep(.35, 1., l))*(.85 + .3*fbm(p*vec2(4., 7.)));
+    vec3 g = mix(lit, nightc, sky);
+    g = mix(g, c*vec3(1.15,1.,.8), gold);
+    // a few small stars in the dark heavens
+    vec2 gs = floor(p*38.); vec2 cs = (gs + .2 + .6*vec2(h21(gs), h21(gs + 7.)))/38.;
+    float pale = (1. - smoothstep(.08, .2, sat))*smoothstep(.5, .7, l);
+    g = mix(g, vec3(1.,.95,.75), pale*step(.88, h21(gs + 3.))*smoothstep(.005, .001, length(p - cs)));
+    // the moon keeps its light
+    vec2 md = (uv - MOON.xy)*vec2(1., RN.w/RN.z); float ml = length(md)/MOON.z;
+    g = mix(g, vec3(.94,.95,.86)*(.9 + .2*vn(p*60.)), smoothstep(1.02, .96, ml));
+    g = mix(g, vec3(.70,.80,.98), exp(-pow((ml - 1.3)/.15, 2.))*.5*(1. - smoothstep(1.02, .96, ml)));
+    if (ml < 1.05) dir = normalize(perp(md) + 1e-4);
+    DET = mix(1., .3, smoothstep(.08, .55, det));
+    if (ml < 1.4) DET = min(DET, .55);
+    return g;
   }
 
-  // ---- day: the Creation of Adam, under an open sky ----
-  vec3 sky(vec2 p, out vec2 dir){
-    vec2 d = p - LC; float L = length(d), n = fbm(p*vec2(6., 9.));
-    vec3 col = mix(vec3(1.,.94,.70), vec3(.48,.68,.90), smoothstep(.06, .85, L));
-    col += .05*sin(L*90. - n*2.)*vec3(1.,.9,.6)*smoothstep(.7, .1, L);
-    dir = normalize(mix(normalize(perp(d) + 1e-4), vec2(1., .4*sin(p.x*7. + p.y*11.) + .3*(n - .5)), smoothstep(.25, .7, L)));
-    // a few rolling summer clouds
-    for (int i = 0; i < 4; i++) {
-      vec2 cc = vec2(A*(i == 0 ? .1 : i == 1 ? .9 : i == 2 ? .28 : .74), i < 2 ? .84 : .95);
-      vec2 q = (p - cc)*vec2(1., 1.9); float r = length(q), f = fbm(q*14. + float(i)*7.);
-      if (r < .07 + .05*f) { col = mix(vec3(.93,.94,.96), vec3(1.,.98,.88), f); dir = normalize(perp(q) + vec2(1., 0.)); }
-    }
-    return col;
-  }
-  // the land: far blue mountains, green fields and wheat with olive trees, cypresses, then grass and poppies
-  vec3 land(vec2 p, out vec2 dir){
-    vec3 col = sky(p, dir);
-    float n = fbm(p*vec2(6., 10.));
-    float mt = HZ + .07 + .05*sin(p.x*3.1 + .5) + .025*sin(p.x*9.7);
-    if (p.y < mt) { col = mix(vec3(.40,.50,.78), vec3(.58,.66,.88), n); dir = vec2(1., .3*sin(p.x*7.)); }
-    float hl = HZ + .012*sin(p.x*4.3 + 2.) + .02*sin(p.x*1.7);
-    if (p.y < hl) {
-      col = mix(vec3(.44,.62,.26), vec3(.70,.76,.34), n);
-      float field = vn(vec2(p.x*7., p.y*16.) + 3.);
-      col = mix(col, mix(vec3(.88,.74,.28), vec3(.96,.86,.42), n), smoothstep(.55, .6, field)*.9);      // patches of wheat
-      dir = vec2(1., .15*sin(p.x*20. + p.y*40.));
-    }
-    // olive trees along the fields
-    for (int k = 0; k < 9; k++) {
-      float tx = fract(float(k)*.371 + .07)*A, ty = HZ + .012*sin(tx*4.3 + 2.) + .02*sin(tx*1.7) - .012 - .05*fract(float(k)*.613);
-      float tr = .022 + .014*fract(float(k)*.29);
-      vec2 q = (p - vec2(tx, ty + tr*1.1))*vec2(.85, 1.); float cr = length(q) - tr*(.85 + .3*vn(p*vec2(70.,70.)));
-      if (abs(p.x - tx) < tr*.12 && p.y < ty + tr && p.y > ty - tr*.3) { col = vec3(.30,.22,.14); dir = vec2(0., 1.); DET = min(DET, .5); }
-      if (cr < 0.) { col = mix(vec3(.30,.44,.30), vec3(.58,.68,.50), vn(p*vec2(60.,60.))); dir = normalize(perp(q) + 1e-4); DET = min(DET, .5); }
-    }
-    // the near ground: deep grass with poppies and buttercups
-    float ng = HZ - .14 + .02*sin(p.x*3. + 1.);
-    if (p.y < ng) {
-      col = mix(vec3(.18,.32,.14), vec3(.38,.52,.20), n*(.5 + .5*p.y/max(ng, .01)));
-      dir = vec2(.25*sin(p.x*60.), 1.);
-      vec2 g = floor(p*vec2(70., 70.)); float fl = h21(g);
-      if (fl > .9 && length(fract(p*70.) - .5) < .32) { col = fl > .95 ? vec3(.92,.18,.12) : vec3(1.,.84,.26); DET = min(DET, .45); }
-    }
-    // cypresses standing at the edges of the picture
-    for (int k = 0; k < 2; k++) {
-      float cx = k == 0 ? A*.035 : A*.965, top = HZ + .42, x0 = cx + .008*sin(p.y*16.);
-      float w = .042*pow(max(0., 1. - (p.y - .02)/(top - .02)), .55)*(.8 + .2*sin(p.y*44. + float(k)));
-      if (abs(p.x - x0) < w && p.y < top) { col = mix(vec3(.05,.20,.10), vec3(.22,.40,.18), vn(p*vec2(30.,60.))); dir = vec2(.3*sin(p.y*30.), 1.); DET = min(DET, .7); }
-    }
-    return col;
-  }
-  // Adam's hill, carried on past the edge of the fresco so he rests on real ground
-  float hillTop(float u){ return u < .55 ? .36 + .14*clamp(u, 0., 1.) + 2.6*max(0., u - .36)*max(0., u - .36) : .53 + (u - .55)*1.6; }
-  float earth(vec2 uv){
-    bool beyond = uv.y > 1.;
-    bool corner = uv.x < .175 && uv.y > .895;                 // a fragment of another figure at the fresco's edge
-    return ((beyond || corner) && uv.y > hillTop(uv.x)) ? 1. : 0.;
-  }
-  vec3 earthPaint(vec2 uv, vec2 p, out vec2 d){
-    float top = hillTop(uv.x), depth = clamp((uv.y - top)/.6, 0., 1.);
-    float n = fbm(vec2(uv.x*9., uv.y*22.)), m = fbm(vec2(uv.x*30., uv.y*60.) + 4.);
-    vec3 c = mix(vec3(.26,.32,.16), vec3(.45,.37,.22), n);
-    c = mix(c, vec3(.36,.50,.24), smoothstep(.12, .0, uv.y - top)*.7);          // grass along the crest
-    c = mix(c, vec3(.55,.48,.30), step(.82, m)*.5);                              // a few lit stones
-    c *= 1. - .45*depth;
-    float slope = uv.x < .55 ? .14 + 5.2*max(0., uv.x - .36) : 1.6;
-    d = vec2(1., -slope*.5 + .2*(n - .5));
-    return c;
-  }
-
+  // ---- day: the Creation of Adam, the painting whole ----
   vec3 dawn(vec2 p, out vec2 dir){
-    DET = 1.; vec2 bd; vec3 col = land(p, bd); dir = bd;
-    float dt = DET;
-    // the man: Adam and the hill he lies on
-    vec2 um = toUV(p, DM, HANDS, DASP);
-    if (um.x < HANDS.x + .004) {
-      vec2 fd; float coh, det, plaster;
-      vec3 c = fresco(TD, FD, um, DM.z, bd, fd, coh, det, plaster);
-      float mountain = step(um.x, .3)*step(um.y, .42)*step(c.r + .06, c.b);          // the fresco's own far mountain gives way to ours
-      float on = inBox(um)*(1. - max(plaster, mountain));
-      on *= smoothstep(0., .03, um.x)*smoothstep(0., .06, 1. - um.y);                  // the fresco's edges melt into the land
-      if (false && earth(um) > 0.) {   // beyond the fresco: the earth he lies on, painted on
-        vec2 ed; c = earthPaint(um, p, ed);
-        fd = normalize(rot(ed, DM.z)); coh = 1.; det = .1; on = 1.;
-      }
-      vec3 g = mix(vec3(lum(c)), c, 1.35); g = (g - .5)*1.12 + .52;
-      col = mix(col, g, on);
-      dir = normalize(mix(dir, fd, on*smoothstep(.15, .6, coh)) + 1e-4);
-      dt = mix(dt, mix(1., .28, smoothstep(.08, .55, det)), on);
-    }
-    // God, with the angels in his cloak
-    vec2 ug = toUV(p, DG, HANDS, DASP);
-    if (ug.x > HANDS.x - .004) {
-      vec2 fd; float coh, det, plaster;
-      vec3 c = fresco(TD, FD, ug, DG.z, bd, fd, coh, det, plaster);
-      float on = inBox(ug)*(1. - plaster)*smoothstep(0., .05, min(1. - ug.x, ug.y) + .02*(vn(p*vec2(30.,30.)) - .5))*smoothstep(0., .01, 1. - ug.y);   // the cloak, cut by the fresco's frame, melts into the sky
-      vec3 g = mix(vec3(lum(c)), c, 1.35); g = (g - .5)*1.12 + .52;
-      col = mix(col, g, on);
-      dir = normalize(mix(dir, fd, on*smoothstep(.15, .6, coh)) + 1e-4);
-      dt = mix(dt, mix(1., .28, smoothstep(.08, .55, det)), on);
-    }
-    DET = dt;
-    return col;
+    vec2 uv; float coh, det, plaster;
+    vec3 c = paintAt(TD, FD, RD, p, uv, dir, coh, det, plaster);
+    vec3 g = mix(vec3(lum(c)), c, 1.3); g = (g - .5)*1.1 + .52;           // fuller colour, firmer form
+    vec2 d = p - LC; float L = length(d);
+    g += vec3(.06,.05,.02)*smoothstep(.45, .0, L)*(.5 + .5*plaster);        // the light between the hands
+    if (plaster > .3) dir = normalize(mix(dir, normalize(perp(d) + 1e-4), smoothstep(.5, .1, L)*.7));
+    DET = mix(1., .28, smoothstep(.08, .55, det));
+    return g;
   }`;
 
   const VS = `#version 300 es
@@ -332,7 +187,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     }
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; for (const n of ['A', 'T', 'MIX', 'BOIL', 'B', 'NT', 'DG', 'DM', 'LC', 'HZ', 'TN', 'FN', 'TD', 'FD']) u[n] = gl.getUniformLocation(p, n);
+    const u = {}; for (const n of ['A', 'T', 'MIX', 'BOIL', 'B', 'RN', 'RD', 'MOON', 'LC', 'TN', 'FN', 'TD', 'FD']) u[n] = gl.getUniformLocation(p, n);
     return { p, u };
   }
   const SP = prog(VS, FS), BG = prog(VS_BG, FS_BG);
@@ -380,26 +235,19 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
   const brush = bristles();
 
   /* where the frescoes sit on this screen */
-  // where the figures stand on this screen: [anchor x, anchor y, rotation, fresco width]
-  let A = 1, NT = [.5, .5, 0, 1], DG = [.5, .5, 0, 1], DM = [.5, .5, 0, 1], LC = [.5, .5], HZ = .4;
-  const NA = nightImg.width / nightImg.height, DA = dayImg.width / dayImg.height;
+  // cover the screen with each painting, keeping its focus in view (meta: focus u,v; moon; hands)
+  let A = 1, RN = [0, 0, 1, 1], RD = [0, 0, 1, 1], LC = [.5, .5], MOON = meta.moon;
+  function cover(img, focus) {
+    const ia = img.width / img.height;
+    let w, h; if (A > ia) { w = A; h = A / ia; } else { h = 1; w = ia; }
+    const x = Math.min(0, Math.max(A - w, A / 2 - focus[0] * w));
+    const y = Math.min(0, Math.max(1 - h, .58 - (1 - focus[1]) * h));
+    return [x, y, w, h];
+  }
   function place() {
-    if (A >= .8) {
-      // wide: each fresco whole, the hands near the middle
-      const nw = Math.min(A * .86, .64 * NA);
-      NT = [A / 2, .52, 0, nw];
-      const dw = Math.min(A * .92, .7 * DA);
-      DG = DM = [A / 2 - (.5 - .385) * dw * .6, .58, 0, dw];
-    } else {
-      // tall: God, the sun and the moon fill the width; then Adam below-left and God above-right,
-      // turned so the two hands meet on the diagonal in the middle of the screen
-      NT = [A * .45, .62, 0, A * 1.18];      // God between the two lights, both in view
-      const dw = A * 1.62;
-      DM = [A * .45, .58, 0.85, dw];
-      DG = [A * .45 + .006, .58 + .006, 0.85, dw];
-    }
-    LC = [DM[0], DM[1]];
-    HZ = A >= .8 ? .4 : .5;
+    RN = cover(nightImg, meta.nightFocus);
+    RD = cover(dayImg, meta.dayFocus);
+    LC = [RD[0] + meta.hands[0] * RD[2], RD[1] + (1 - meta.hands[1]) * RD[3]];
   }
 
   /* strokes: three passes, broad underpainting → body → fine top marks */
@@ -444,7 +292,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow]) {
     if (!vao || Math.abs(a - A) / A > .12) lay();   // re-lay only if the shape really changed (not for a URL bar)
   }
   function bind(P) {
-    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.NT, NT); gl.uniform4fv(P.u.DG, DG); gl.uniform4fv(P.u.DM, DM); gl.uniform2fv(P.u.LC, LC); gl.uniform1f(P.u.HZ, HZ);
+    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform3fv(P.u.MOON, MOON); gl.uniform2fv(P.u.LC, LC);
     ['TN', 'FN', 'TD', 'FD'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
