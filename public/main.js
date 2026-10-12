@@ -48,7 +48,7 @@ if (!gl) { root.classList.add('no-gl'); ready(); }
 else fetch('/img/scene.json').then(r => r.json()).then(meta =>
   Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp`)))
     .then(ims => paint(gl, ims, meta[shape])))
-  .catch(() => { root.classList.add('no-gl'); ready(); });
+  .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
 function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   // Each picture: its figures cut free of the plaster and placed (see place()), in a painted
@@ -137,17 +137,28 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     vec2 dir = normalize(mix(dn, dd, k) + 1e-4);
     vec3 col = mix(cn, cd, k);
     float det = mix(detN, detD, k);
+    float free = smoothstep(.35, 1., det);                  // how free the brush is here (low detail = free)
     // the hand: no two strokes the same
-    float a = (rnd.y - .5)*.42*det;
+    float a = (rnd.y - .5)*(.32 + .5*free)*det;
     dir = mat2(cos(a), sin(a), -sin(a), cos(a)) * dir;
-    col *= .9 + .2*rnd.z;
-    col = mix(col, col.gbr*.5 + col*.5, (rnd.w - .5)*.1);
+    // Beethoven, not Bach: each stroke pushes its colour — warmer or cooler, fuller or greyer — and the
+    // value range opens up (deeper darks, brighter lights), more where the brush is free (low detail)
+    float lv = dot(col, vec3(.3,.55,.15));
+    col = lv + (col - lv)*(1.08 + .5*(rnd.z - .5)*mix(.25, 1., free));                  // chroma: some strokes sing, some whisper
+    col += (rnd.w - .5)*(.03 + .12*free)*vec3(.9, .1, -.9);                              // warm / cool broken colour (quiet on faces)
+    col *= mix(.94, .84, free) + mix(.12, .32, free)*rnd.z;
+    col = mix(col, smoothstep(0., 1., col), .25);                                        // dynamics: open the value range
     // the wind: the whole picture breathes along its own current
     float wave = sin(T*.7 - p.x*3.1 - p.y*2.3 + rnd.x*.8);
     vec2 drift = dir * .006 * wave * BOIL;
     float wob = .05 * sin(T*.9 + rnd.y*6.28) * BOIL;
     dir = mat2(cos(wob), sin(wob), -sin(wob), cos(wob)) * dir;
-    vec2 q = p + drift*det + (dir*corner.x*size.x + perp(dir)*corner.y*size.y)*det;
+    // the stroke swings: it bends along its length, and presses hard at the head then lifts thin at the tail
+    float bend = (rnd.x - .5)*(.35 + 1.1*free);
+    float press = mix(1.15, .5, smoothstep(-.5, .5, corner.x)) * (1. + .18*sin(corner.x*9. + rnd.y*20.));
+    vec2 along = dir*corner.x*size.x, across = perp(dir)*(corner.y*size.y*press + bend*(corner.x*corner.x - .25)*size.x);
+    float sweep = size.x > .06 ? mix(.3, 1., free) : 1.;   // great sweeps belong to the open sky, not across a face
+    vec2 q = p + drift*det + (along + across)*det*sweep;
     gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., det*.9 - .45 + rnd.z*.04, 1.);   // small brushes land on top
     vUv = corner + .5; vCol = col; vSeed = rnd.w;
   }`;
@@ -159,7 +170,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   void main(){
     vec4 b = texture(B, vec2(vUv.x, vUv.y*.5 + step(.5, vSeed)*.5));   // two bristle loads
     if (b.a < .3) discard;
-    vec3 c = vCol * (.84 + .3*b.r) + .06*smoothstep(.35, 1., b.r)*(1. - vUv.y);   // impasto ridges catch the light
+    vec3 c = vCol * (.78 + .4*b.r) + .11*smoothstep(.4, 1., b.r)*(1. - vUv.y) - .05*smoothstep(.5, 0., b.r);   // thick impasto: ridges catch light, grooves hold shadow
     o = vec4(c, b.a);
   }`;
   const VS_BG = `#version 300 es
@@ -251,12 +262,12 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   }
 
   /* strokes: three passes, broad underpainting → body → fine top marks */
-  let vao, count = 0;
+  let vao, count = 0; const SEG = 8;
   function lay() {
     A = canvas.clientWidth / canvas.clientHeight; place();
     // a narrow screen shows the figures smaller, so it gets a smaller brush (and more strokes to cover)
     const narrow = A < .8, sm = narrow ? .6 : 1;
-    const passes = [[1300, .07 * sm, .024 * sm], [6000, .04 * sm, .014 * sm], [7000, .022 * sm, .0085 * sm]];
+    const passes = [[260, .16 * sm, .045 * sm], [1100, .075 * sm, .026 * sm], [5600, .04 * sm, .014 * sm], [7200, .021 * sm, .008 * sm]];
     const k = A * (narrow ? 1.9 : 1);
     const data = [];
     let seed = 1; const r = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
@@ -264,14 +275,16 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
       const N = Math.round(n * k), cols = Math.ceil(Math.sqrt(N * A)), rows = Math.ceil(N / cols);
       for (let i = 0; i < N; i++) {
         const x = (i % cols + r()) / cols, y = (Math.floor(i / cols) + r()) / rows;
-        const f = .75 + r() * .5;
+        const g = Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(6.2832 * r());   // a wide spread of sizes
+        const f = Math.min(2.4, Math.max(.4, Math.exp(g * .42)));
         data.push(x * 1.04 - .02, y * 1.04 - .02, r(), r(), r(), r(), len * f, wid * f);
       }
     }
     count = data.length / 8;
     vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-.5, -.5, .5, -.5, -.5, .5, .5, .5]), gl.STATIC_DRAW);
+    const strip = []; for (let i = 0; i <= SEG; i++) { const x = -.5 + i / SEG; strip.push(x, -.5, x, .5); }   // a bendable stroke
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(strip), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     const inst = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, inst);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
@@ -315,7 +328,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     gl.useProgram(SP.p); bind(SP);
     gl.uniform1f(SP.u.T, still ? 0 : now / 1000); gl.uniform1f(SP.u.MIX, mix); gl.uniform1f(SP.u.BOIL, still ? 0 : 1);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, brush); gl.uniform1i(SP.u.B, 0);
-    gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+    gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, (SEG + 1) * 2, count);
     if (!once) requestAnimationFrame(frame);
   }
   resize();
