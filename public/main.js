@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791812429').then(r => r.json()).then(meta =>
-  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791812429`)))
+else fetch('/img/scene.json?v=1791812557').then(r => r.json()).then(meta =>
+  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791812557`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -96,12 +96,11 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     // a few small stars in the dark heavens
     vec2 gs = floor(p*38.); vec2 cs = (gs + .2 + .6*vec2(h21(gs), h21(gs + 7.)))/38.;
     float pale = (1. - smoothstep(.08, .2, sat))*smoothstep(.5, .7, l);
-    g = mix(g, vec3(1.,.95,.75), pale*step(.88, h21(gs + 3.))*smoothstep(.005, .001, length(p - cs)));
-    // the moon keeps its light
+    float offMoon = step(1.2, length((uv - MOON.xy)*vec2(1., RN.w/RN.z))/MOON.z);   // no stars on the moon
+    g = mix(g, vec3(1.,.95,.75), pale*offMoon*step(.88, h21(gs + 3.))*smoothstep(.005, .001, length(p - cs)));
     vec2 md = (uv - MOON.xy)*vec2(1., RN.w/RN.z); float ml = length(md)/MOON.z;
-    g = mix(g, vec3(.94,.95,.86)*(.9 + .2*vn(p*60.)), smoothstep(1.02, .96, ml));
-    g = mix(g, vec3(.70,.80,.98), exp(-pow((ml - 1.3)/.15, 2.))*.5*(1. - smoothstep(1.02, .96, ml)));
-    if (ml < 1.05) dir = normalize(perp(md) + 1e-4);
+    // the painting has its own moon; here we only keep the brush small and circling around it
+    if (ml < 1.1) dir = normalize(perp(md) + 1e-4);
     DET = mix(1., .3, smoothstep(.08, .55, det));
     if (ml < 2.6) DET = min(DET, mix(.5, 1., smoothstep(1.2, 2.6, ml)));   // big sky strokes must not reach across the moon
     return g;
