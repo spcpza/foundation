@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791792072').then(r => r.json()).then(meta =>
-  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791792072`)))
+else fetch('/img/scene.json?v=1791812429').then(r => r.json()).then(meta =>
+  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791812429`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
