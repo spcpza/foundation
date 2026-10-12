@@ -4,7 +4,7 @@ The landing page of a family office. It names no one: the vision is the point.
 
 **A living painting: Michelangelo's world, finished.** Two Sistine Chapel frescoes are grown past Michelangelo's frame into whole paintings, then repainted live in Van Gogh's brushwork, stroke by stroke. Night turns to day (Gen 1:5):
 
-1. **Night: God makes the lights** (*The Creation of the Sun and Moon*, Gen 1:16). The painting itself is night: pure heavens, deep blue and full of stars, with no land yet. God floats in a glow of cloud between the whole burning sun and the moon.
+1. **Night: Ivan Aivazovsky, *Chaos. The Creation* (1841).** God appears as a figure of light breaking through the storm over the dark deep: "darkness was upon the face of the deep… Let there be light" (Gen 1:2–3). Phones see his canvas whole (glare edge cropped). Desktops see it widened by `tools/widen.py` (his canvas kept exactly; the storm and sea continued either side, colour-matched band by band) with the seams healed by `tools/seams.py`. The brush is calmer and finer at night, the fine work around God's light especially, and the ground beneath is his own soft painting.
 2. **Day: *The Creation of Adam*.** Scrolling repaints the canvas outward from the hands into the finished world. Adam lies on his hill, and below opens the Garden of Eden: a valley with a winding path, cypresses and leafy trees, and roses and wildflowers. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
 
 **How the frescoes were finished** (SDXL inpainting, run on this machine):

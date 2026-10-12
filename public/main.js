@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791812557').then(r => r.json()).then(meta =>
-  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791812557`)))
+else fetch('/img/scene.json?v=1791821695').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791821695`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -80,29 +80,19 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     return textureLod(T, uv, 0.).rgb;
   }
 
-  // ---- night: God makes the two great lights (Gen 1:16); the whole painting turned to night ----
+  // ---- night: Aivazovsky, "Chaos. The Creation" (1841) — the Spirit of God, a figure of light, over the face of the deep ----
   vec3 night(vec2 p, out vec2 dir){
     vec2 uv; float coh, det, plaster;
     vec3 c = paintAt(TN, FN, RN, p, uv, dir, coh, det, plaster);
-    float l = lum(c), sat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
-    float warm = smoothstep(.12, .3, sat)*step(c.b, c.g)*step(c.g, c.r);
-    float gold = smoothstep(.3, .5, sat)*step(c.b + .2, c.r);                 // the sun keeps its fire
-    // the heavens sink to deep night blue; God and those with him stay lit by the lights he is making
-    float sky = smoothstep(.15, .7, plaster);           // only the open heavens, joined to the picture's edges (never a robe's highlight)
-    vec3 lit = mix(vec3(l), c, 1.25)*mix(vec3(.95,.86,.98), vec3(1.06,.95,.86), warm);
-    vec3 nightc = mix(vec3(.04,.07,.24), vec3(.26,.36,.68), smoothstep(.35, 1., l))*(.85 + .3*fbm(p*vec2(4., 7.)));
-    vec3 g = mix(lit, nightc, sky);
-    g = mix(g, c*vec3(1.15,1.,.8), gold);
-    // a few small stars in the dark heavens
-    vec2 gs = floor(p*38.); vec2 cs = (gs + .2 + .6*vec2(h21(gs), h21(gs + 7.)))/38.;
-    float pale = (1. - smoothstep(.08, .2, sat))*smoothstep(.5, .7, l);
-    float offMoon = step(1.2, length((uv - MOON.xy)*vec2(1., RN.w/RN.z))/MOON.z);   // no stars on the moon
-    g = mix(g, vec3(1.,.95,.75), pale*offMoon*step(.88, h21(gs + 3.))*smoothstep(.005, .001, length(p - cs)));
-    vec2 md = (uv - MOON.xy)*vec2(1., RN.w/RN.z); float ml = length(md)/MOON.z;
-    // the painting has its own moon; here we only keep the brush small and circling around it
-    if (ml < 1.1) dir = normalize(perp(md) + 1e-4);
+    // deepen the night a little: darks sink toward blue-black, the light stays warm
+    float l = lum(c);
+    vec3 g = mix(c*vec3(.78,.80,.95), c*vec3(1.06,1.,.92), smoothstep(.25, .75, l));
+    g = (g - .5)*1.08 + .48;
+    // around God the brush is finest and circles his light, so the figure is never painted away
+    vec2 gd = (uv - MOON.xy)*vec2(1., RN.w/RN.z); float gl = length(gd)/MOON.z;
+    if (gl < 1.6) dir = normalize(mix(dir, perp(gd), .5*(1. - smoothstep(.6, 1.6, gl))) + 1e-4);
     DET = mix(1., .3, smoothstep(.08, .55, det));
-    if (ml < 2.6) DET = min(DET, mix(.5, 1., smoothstep(1.2, 2.6, ml)));   // big sky strokes must not reach across the moon
+    DET = min(DET, mix(.14, 1., smoothstep(1., 3.2, gl)));
     return g;
   }
 
@@ -138,13 +128,14 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     float det = mix(detN, detD, k);
     float free = smoothstep(.35, 1., det);                  // how free the brush is here (low detail = free)
     // the hand: no two strokes the same
-    float a = (rnd.y - .5)*(.32 + .5*free)*det;
+    float calm0 = 1. - k;
+    float a = (rnd.y - .5)*(.32 + .5*free)*det*(1. - .75*calm0);   // at night the hand is steady
     dir = mat2(cos(a), sin(a), -sin(a), cos(a)) * dir;
     // Beethoven, not Bach: each stroke pushes its colour — warmer or cooler, fuller or greyer — and the
     // value range opens up (deeper darks, brighter lights), more where the brush is free (low detail)
     float lv = dot(col, vec3(.3,.55,.15));
     col = lv + (col - lv)*(1.08 + .5*(rnd.z - .5)*mix(.25, 1., free));                  // chroma: some strokes sing, some whisper
-    col += (rnd.w - .5)*(.03 + .12*free)*vec3(.9, .1, -.9);                              // warm / cool broken colour (quiet on faces)
+    col += (rnd.w - .5)*(.03 + .12*free)*(1. - .7*(1. - k))*vec3(.9, .1, -.9);                              // warm / cool broken colour (quiet on faces)
     col *= mix(.94, .84, free) + mix(.12, .32, free)*rnd.z;
     col = mix(col, smoothstep(0., 1., col), .25);                                        // dynamics: open the value range
     // the wind: the whole picture breathes along its own current
@@ -153,11 +144,12 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     float wob = .05 * sin(T*.9 + rnd.y*6.28) * BOIL;
     dir = mat2(cos(wob), sin(wob), -sin(wob), cos(wob)) * dir;
     // the stroke swings: it bends along its length, and presses hard at the head then lifts thin at the tail
-    float bend = (rnd.x - .5)*(.35 + 1.1*free);
+    float calm = 1. - k;                                    // 1 at night (Aivazovsky's soft clouds), 0 by day
+    float bend = (rnd.x - .5)*(.35 + 1.1*free)*(1. - .6*calm);
     float press = mix(1.15, .5, smoothstep(-.5, .5, corner.x)) * (1. + .18*sin(corner.x*9. + rnd.y*20.));
     vec2 along = dir*corner.x*size.x, across = perp(dir)*(corner.y*size.y*press + bend*(corner.x*corner.x - .25)*size.x);
     float sweep = size.x > .06 ? mix(.3, 1., free) : 1.;   // great sweeps belong to the open sky, not across a face
-    vec2 q = p + drift*det + (along + across)*det*sweep;
+    vec2 q = p + drift*det + (along + across)*det*sweep*mix(1., .55, calm);   // Aivazovsky's soft clouds want a smaller, smoother brush
     gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., det*.9 - .45 + rnd.z*.04, 1.);   // small brushes land on top
     vUv = corner + .5; vCol = col; vSeed = rnd.w;
   }`;
@@ -183,7 +175,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     vec2 d1, d2; float m = smoothstep(.15, .9, MIX);
     DET = 1.; vec3 cn = night(vp, d1); float dn = DET; DET = 1.; vec3 cd = dawn(vp, d2); float dd = DET;
     vec3 c = mix(cn, cd, m);
-    float fine = 1. - smoothstep(.4, .8, mix(dn, dd, m));     // where a small brush works, the ground beneath is painted true
+    float fine = 1. - smoothstep(.4, .8, mix(dn, dd, m));
+    fine = max(fine, .85*(1. - m));                            // at night the ground is Aivazovsky's own soft painting     // where a small brush works, the ground beneath is painted true
     float weave = .5 + .5*sin(vp.x*900.)*sin(vp.y*900.);
     o = vec4(c*mix(.66, 1., fine) + vec3(.05,.04,.03)*weave*(1. - fine), 1.);
   }`;
