@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json').then(r => r.json()).then(meta =>
-  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp`)))
+else fetch('/img/scene.json?v=1791792072').then(r => r.json()).then(meta =>
+  Promise.all(['night', 'night-flow', 'day', 'day-flow'].map(n => load(`/img/${n}.webp?v=1791792072`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -103,7 +103,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     g = mix(g, vec3(.70,.80,.98), exp(-pow((ml - 1.3)/.15, 2.))*.5*(1. - smoothstep(1.02, .96, ml)));
     if (ml < 1.05) dir = normalize(perp(md) + 1e-4);
     DET = mix(1., .3, smoothstep(.08, .55, det));
-    if (ml < 1.4) DET = min(DET, .55);
+    if (ml < 2.6) DET = min(DET, mix(.5, 1., smoothstep(1.2, 2.6, ml)));   // big sky strokes must not reach across the moon
     return g;
   }
 
