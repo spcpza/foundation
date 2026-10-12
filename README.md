@@ -4,14 +4,20 @@ The landing page of a family office. It names no one: the vision is the point.
 
 **A living painting: Michelangelo's world, finished.** Two Sistine Chapel frescoes are grown past Michelangelo's frame into whole paintings, then repainted live in Van Gogh's brushwork, stroke by stroke. Night turns to day (Gen 1:5):
 
-1. **Night: God makes the lights** (*The Creation of the Sun and Moon*, Gen 1:16). The heavens are grown out in clouds, with the sun and moon whole, and graded to night. God stays lit.
-2. **Day: *The Creation of Adam*.** Scrolling repaints the canvas outward from the hands into the whole scene: sky and clouds, Adam's hillside running to the ground, distant blue mountains. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
+1. **Night: God makes the lights** (*The Creation of the Sun and Moon*, Gen 1:16). The painting itself is night: pure heavens, deep blue and full of stars, with no land yet. God floats in a glow of cloud between the whole burning sun and the moon.
+2. **Day: *The Creation of Adam*.** Scrolling repaints the canvas outward from the hands into the finished world. Adam lies on his hill, and below opens the Garden of Eden: a valley with a winding path, cypresses and leafy trees, and roses and wildflowers. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
 
-**Growing the frescoes** (`tools/whole.py`, SDXL inpainting run locally):
-- one global pass, so the composition is coherent
-- one unifying pass over the new area plus a band across the old frame edge, so no frame line survives
-- Michelangelo's figures and inner plaster laid back exactly
-- the sun and moon completed from his own halves
+**How the frescoes were finished** (SDXL inpainting, run on this machine):
+- `tools/whole.py` grows each fresco:
+  - a painter's underpainting sketch, then a global pass at reduced strength
+  - the old plaster is carried into the world's own colour
+  - a band across the old frame is covered
+  - a unifying pass, then his figures laid back exactly
+  - the sun and moon completed from his own halves
+- `tools/refine.py` melts the plaster around the figures into the sky.
+- `tools/populate.py` blocks in trees and flowers on the land and lets the model paint them.
+
+The brushwork has dynamics ("Beethoven, not Bach"): a wide spread of stroke sizes, great sweeps in the open sky, bent strokes with pressure, and broken colour. Faces and hands stay steady.
 
 Sources: `src/` (public domain, Wikimedia Commons). Results: `src/grown/`.
 
