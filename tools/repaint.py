@@ -18,13 +18,14 @@ if job == 'night':
     FPROMPT = ("Michelangelo fresco, close-up of God the Father: noble powerful face, flowing white hair and beard, "
                "strong hands, rose robe with deep folds, cherubs, soft glory of light, dark blue heavens, masterpiece")
 else:
-    PROMPT = ("Michelangelo, Sistine Chapel fresco, The Creation of Adam: Adam reclining on a green hillside reaching up, "
-              "God the Father with white hair and beard in a rose robe borne by angels in a red mantle, their fingers "
-              "almost touching with light between them, luminous sky with soft clouds, below the Garden of Eden with "
-              "trees, a winding path and wildflowers, chalky fresco texture, masterpiece")
-    FOCUS = (0, 500, 2000, 1500)
-    FPROMPT = ("Michelangelo fresco, The Creation of Adam, Adam and God the Father, noble faces, strong hands, fingers almost "
-               "touching, masterpiece")
+    PROMPT = ("Michelangelo, The Creation of Adam, painted as one great oil painting: Adam reclining on a green hillside "
+              "reaching up, God the Father with white hair and beard in a rose robe borne by angels in a billowing red mantle, "
+              "their fingers almost touching with light between them, a luminous golden morning sky with soft clouds, below "
+              "the Garden of Eden in morning light with leafy trees, a winding river and wildflowers, warm golden light, "
+              "rich harmonious colours, masterpiece")
+    FOCUS = (0, 400, 2000, 1500)
+    FPROMPT = ("Michelangelo, The Creation of Adam, Adam and God the Father, noble faces, strong anatomically correct hands, "
+               "fingers almost touching, masterpiece")
 NEG = ("extra people, crowd, extra limbs, extra fingers, deformed hands, deformed face, distorted, mutated, ugly, blurry, "
        "text, signature, watermark, frame, border, photo, 3d render, cartoon, landscape, mountains, sea"
        if job == 'night' else
