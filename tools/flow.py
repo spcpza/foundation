@@ -1,13 +1,13 @@
 # Prepares a fresco for the brush engine: a web copy of the picture, and a "flow" map that tells
 # each brushstroke which way to travel (along Michelangelo's forms) and how small a brush to use.
-# usage: python3 tools/flow.py <src.jpg> <name> <max width>
+# usage: python3 tools/flow.py <src.jpg> <name> <max width> [figure mask]
 #   -> public/img/<name>.webp   (the picture)
 #   -> public/img/<name>-flow.webp  R,G = cos/sin of twice the stroke angle, B = coherence (>.5) or plaster (<.5), A = detail
 # Sources (public domain, Wikimedia Commons): Michelangelo, "The Creation of the Sun and Moon" (cropped to God, the sun and the moon) and
 # "The Creation of Adam" (Sistine Chapel ceiling, 1508-12).
 import sys
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 src, name, maxw = sys.argv[1], sys.argv[2], int(sys.argv[3])
 im = Image.open(src).convert('RGB')
@@ -56,6 +56,14 @@ plaster = np.clip(blur(bgm.astype(np.float32), 2.0) * 1.3 - .15, 0, 1)
 print('plaster', round(float(plaster.mean()), 2))
 # B: coherence in the upper half, plaster in the lower (B < .5 means plaster, by how much)
 B = np.where(plaster > .5, .5 - .5 * plaster, .5 + .5 * coh)
+# optional figure mask (white = figure): figures are never painted with a big free brush, and the air just
+# around them gets a medium brush too, so no sky or hill stroke can lie across a limb and make it look transparent
+if len(sys.argv) > 4:
+    fm = Image.open(sys.argv[4]).convert('L').resize(small.size, Image.BILINEAR)
+    f = np.asarray(fm, np.float32) / 255
+    near = np.asarray(fm.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(3)), np.float32) / 255
+    detail = np.maximum(detail, np.maximum(f * .62, near * .42))
+    B = np.where(f > .5, np.maximum(B, .5), B)            # a figure is never plaster
 out = np.stack([np.cos(2 * theta) * .5 + .5, np.sin(2 * theta) * .5 + .5, B, detail], 2)
 Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).save(f'public/img/{name}-flow.webp', lossless=True, quality=100, method=6, exact=True)
 print(name, im.size, 'flow', small.size)
