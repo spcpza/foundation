@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791883453').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow'].map(n => load(`/img/${n}.webp?v=1791883453`)))
+else fetch('/img/scene.json?v=1791884245').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow'].map(n => load(`/img/${n}.webp?v=1791884245`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -76,12 +76,12 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow], meta
   vec3 finish(vec3 col, vec2 p, inout vec2 dir, float free, vec2 F, float radial, float glow){
     vec2 d = p - F; float L = length(d) + 1e-4;
     vec2 swirl = normalize(perp(d)*(1. - radial) + d*radial + 1e-4);
-    float reach = free * (1. - smoothstep(.15, .95, L));
+    float reach = (.25 + .75*free) * (1. - smoothstep(.2, 1.25, L));
     if (dot(swirl, dir) < 0.) swirl = -swirl;
-    dir = normalize(mix(dir, swirl, reach*.85) + 1e-4);
-    col += glow * vec3(1.,.86,.58) * exp(-L*L/.045) * (.6 + .4*free);
+    dir = normalize(mix(dir, swirl, min(1., reach*1.1)) + 1e-4);
+    col += glow * vec3(1.,.86,.58) * (exp(-L*L/.03) + .5*exp(-L*L/.18)) * (.7 + .3*free);
     vec2 e = p - vec2(A*.5, .5);
-    col *= 1. - .3*smoothstep(.45, 1.15, length(e*vec2(1./max(A,.6), 1.)));
+    col *= 1. - .48*smoothstep(.35, 1.05, length(e*vec2(1./max(A,.6), 1.)));
     return col;
   }
 
@@ -167,7 +167,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow], meta
     float k2 = smoothstep(order2 - .05, order2 + .05, MIX2*1.12 - .03);
     dir = normalize(mix(dir, dl, k2) + 1e-4); col = mix(col, cl, k2); det = mix(det, detL, k2);
     vec2 F = mix(mix(GL, LC, k), LJ, k2);
-    col = finish(col, p, dir, smoothstep(.35, 1., det), F, k2, mix(mix(.10, .07, k), .05, k2));
+    col = finish(col, p, dir, smoothstep(.35, 1., det), F, k2, mix(mix(.2, .15, k), .11, k2));
     float free = smoothstep(.35, 1., det);                  // how free the brush is here (low detail = free)
     // the hand: no two strokes the same
     float calm0 = 1. - k;
@@ -221,7 +221,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow], meta
     vec2 d3; DET = 1.; vec3 cl = supper(vp, d3); float m2 = smoothstep(.15, .9, MIX2);
     c = mix(c, cl, m2); dm = mix(dm, DET, m2);
     vec2 dz = vec2(1., 0.); vec2 F = mix(mix(GL, LC, m), LJ, m2);
-    c = finish(c, vp, dz, smoothstep(.35, 1., dm), F, m2, mix(mix(.10, .07, m), .05, m2));
+    c = finish(c, vp, dz, smoothstep(.35, 1., dm), F, m2, mix(mix(.2, .15, m), .11, m2));
     float fine = 1. - smoothstep(.4, .8, dm);
     fine = max(fine, .85*(1. - m));                            // at night the ground is Aivazovsky's own soft painting     // where a small brush works, the ground beneath is painted true
     float weave = .5 + .5*sin(vp.x*900.)*sin(vp.y*900.);
