@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791897321').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift'].map(n => load(`/img/${n}.webp?v=1791897321`)))
+else fetch('/img/scene.json?v=1791906783').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift'].map(n => load(`/img/${n}.webp?v=1791906783`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -236,23 +236,29 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   ${SCENE}
   float hh(float n){ return fract(sin(n*127.1)*43758.5453); }
   vec3 glitch(sampler2D Tx, vec4 R, vec2 p, float amt, float seed, out vec2 uv){
-    float fr = floor(T*9. + seed), band = floor(p.y*70.), band2 = floor(p.y*22.);
-    float slice = step(.45, hh(band2*3.1 + fr*.7 + seed)) * (hh(band*1.7 + fr) - .5) * .18 * amt;
-    vec2 q = p + vec2(slice, 0.);
-    if (hh(dot(floor(p*vec2(36., 28.)), vec2(1.3, 7.1)) + fr) > .8) q = (floor(q*40.) + .5)/40.;   // blocks of light
+    // more glitch, no blocks: fine slices that tear sideways, a rolling wave through the signal, a wide
+    // colour split, and smears of light dragged along the scan — all soft-edged, nothing quantised
+    float fr = floor(T*14. + seed), fr2 = floor(T*5. + seed);
+    float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.);
+    float on = step(.38, hh(band2*3.1 + fr*.7 + seed));
+    float slice = on * (hh(band*1.7 + fr) - .5) * .16 * amt;
+    float wave = sin(p.y*38. + T*7. + seed) * .006 * amt + sin(p.y*170. - T*23.) * .0018 * amt;
+    vec2 q = p + vec2(slice + wave, 0.);
     uv = clamp(vec2((q.x - R.x)/R.z, 1. - (q.y - R.y)/R.w), .001, .999);
-    float ch = .016*amt/R.z;
-    vec3 c = vec3(texture(Tx, uv + vec2(ch, 0.)).r, texture(Tx, uv).g, texture(Tx, uv - vec2(ch, 0.)).b);
-    c = c*vec3(1.12, 1.05, .88) + vec3(.12, .1, .05);                        // heaven's light: gold-white
-    c += vec3(1., .92, .7) * step(.93, hh(band*5.3 + fr*1.9 + seed)) * .45;   // bright scan-lines of light
-    c = mix(c, floor(c*7.)/7., .35*amt);                                     // a little quantised, digital
-    c *= .9 + .1*sin(gl_FragCoord.y*2.2 + T*30.);                            // scanlines
+    float ch = (.012 + .03*on*hh(band + fr*3.)) * amt / R.z;
+    vec3 c = vec3(texture(Tx, uv + vec2(ch, ch*.25)).r, texture(Tx, uv).g, texture(Tx, uv - vec2(ch, ch*.25)).b);
+    // smear: light dragged along the scan line, like a signal stretched by something passing through
+    vec3 sm = vec3(0.); for (int i = 1; i <= 6; i++) sm += texture(Tx, uv - vec2(float(i)*.006*amt*on/R.z*3., 0.)).rgb;
+    c = mix(c, max(c, sm/6.), .55*on);
+    c = c*vec3(1.1, 1.04, .9) + vec3(.1, .08, .04);                          // heaven's light: gold-white
+    c += vec3(1., .93, .75) * smoothstep(.975, 1., hh(floor(p.y*300.) + fr*1.9 + seed)) * .5;   // thin bright scan-lines
+    c *= .93 + .07*sin(gl_FragCoord.y*2.2 + T*30.);
     return c;
   }
   void main(){
     float m = smoothstep(.1, .36, MIX), m2 = smoothstep(.1, .9, MIX2);
     float wN = 1. - m, wD = m*(1. - m2), wS = m2;
-    float burst = .55 + .45*step(.5, hh(floor(T*1.6)));                     // bursts, then a quieter shimmer
+    float burst = .6 + .4*smoothstep(.3, .7, hh(floor(T*2.4)));   /* more often, softer in and out */                     // bursts, then a quieter shimmer
     vec2 uv; vec3 col = vec3(0.); float a = 0.;
     // night: around God's light in the storm
     float rn = length(vp - GL); float mn = smoothstep(.42, .06, rn) * (.6 + .4*hh(floor(vp.y*60.) + floor(T*7.)));
@@ -265,7 +271,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float rs = length((vp - LJ - vec2(0., .075*RL.z))*vec2(1., 1.15))/RL.z; float ms = smoothstep(.19, .1, rs)*smoothstep(.047, .075, rs)*smoothstep(.01, .06, (vp.y - LJ.y)/RL.z) /* a ring around his head: his face stays clear */ * (.5 + .5*hh(floor(vp.y*80.) + floor(T*6.)));
     if (wS*ms > .01) { vec3 c = glitch(TL, RL, vp, .8, 13., uv); col += c*wS*ms; a += wS*ms; }
     if (a < .01) discard;
-    o = vec4(col/a, clamp(a*1.3, 0., 1.) * burst);
+    o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
 
   function prog(vs, fs) {
