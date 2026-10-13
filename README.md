@@ -7,6 +7,10 @@ The landing page of a family office. It names no one: the vision is the point.
 1. **Night: Ivan Aivazovsky, *Chaos. The Creation* (1841).** God appears as a figure of light breaking through the storm over the dark deep: "darkness was upon the face of the deep… Let there be light" (Gen 1:2–3). Phones see his canvas whole (glare edge cropped). Desktops see it widened by `tools/widen.py` (his canvas kept exactly; the storm and sea continued either side, colour-matched band by band) with the seams healed by `tools/seams.py`. The brush is calmer and finer at night, the fine work around God's light especially, and the ground beneath is his own soft painting.
 2. **Day: *The Creation of Adam*.** Scrolling repaints the canvas outward from the hands into the finished world. Adam lies on his hill, and below opens the Garden of Eden: a valley with a winding path, cypresses and leafy trees, and roses and wildflowers. *And God saw every thing that he had made, and, behold, it was very good* (Gen 1:31).
 
+3. **The Last Supper: Leonardo da Vinci (1495–98).** Scrolling repaints the day outward from Christ into the upper room. *This is my body which is given for you: this do in remembrance of me* (Luke 22:19). The 17th-century doorway cut through the bottom of the wall is repainted (`tools/supper.py`: tablecloth, Christ's feet, the floor). Phones see the centre of the table, with the ceiling and floor continued by `tools/tallen.py`.
+
+The figures are painted, not sprinkled: extra strokes are laid in proportion to each painting's detail. Named faces and hands (`dayFine` in `scene.json`) always get the finest brush. God's face in the day was repainted at full resolution (`tools/face.py`).
+
 **How the frescoes were finished** (SDXL inpainting, run on this machine):
 - `tools/whole.py` grows each fresco:
   - a painter's underpainting sketch, then a global pass at reduced strength

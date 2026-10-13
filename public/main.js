@@ -45,22 +45,24 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791855666').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow'].map(n => load(`/img/${n}.webp?v=1791855666`)))
+else fetch('/img/scene.json?v=1791862206').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow'].map(n => load(`/img/${n}.webp?v=1791862206`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
-function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
+function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow], meta) {
   // Each picture: its figures cut free of the plaster and placed (see place()), in a painted
   // world around it — a starry night, or a sunlit sky — so any screen shape is a whole picture.
   // Each picture is one whole painting: Michelangelo's fresco, grown past its frame in his manner.
   // It covers the screen around its focus; the brush engine repaints it stroke by stroke.
   const SCENE = /* glsl */`
   uniform float A;                       // canvas width / height (height is 1)
-  uniform vec4 RN, RD;                   // where each painting lies on the canvas: x, y, w, h
+  uniform vec4 RN, RD, RL;               // where each painting lies on the canvas: x, y, w, h
+  uniform vec2 LJ;                       // Christ at the centre of the Last Supper
   uniform vec3 MOON;                     // the moon in the night painting: u, v, radius (in widths)
   uniform vec2 LC;                       // the light: between the two hands
-  uniform sampler2D TN, FN, TD, FD;      // paintings and their flow maps
+  uniform vec3 FINE[4];                  // the day's faces and hands: u, v, radius (in widths) — always the finest brush
+  uniform sampler2D TN, FN, TD, FD, TL, FL;   // paintings and their flow maps
   float DET = 1.;                        // brush size here (small for faces, hands and edges)
   float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
@@ -105,6 +107,24 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     g += vec3(.06,.05,.02)*smoothstep(.45, .0, L)*(.5 + .5*plaster);        // the light between the hands
     if (plaster > .3) dir = normalize(mix(dir, normalize(perp(d) + 1e-4), smoothstep(.5, .1, L)*.7));
     DET = mix(1., .28, smoothstep(.08, .55, det));
+    DET = min(DET, mix(1., .11, smoothstep(.5, .85, det)));     // eyes, fingertips: the finest brush
+    for (int i = 0; i < 4; i++) {                                // faces and hands are named, not guessed
+      float fd = length((uv - FINE[i].xy)*vec2(1., RD.w/RD.z))/FINE[i].z;
+      DET = min(DET, mix(.1, 1., smoothstep(.7, 2.2, fd)));
+    }
+    return g;
+  }
+
+  // ---- the third picture: Leonardo, The Last Supper (1495-98) ----
+  vec3 supper(vec2 p, out vec2 dir){
+    vec2 uv; float coh, det, plaster;
+    vec3 c = paintAt(TL, FL, RL, p, uv, dir, coh, det, plaster);
+    vec3 g = mix(vec3(lum(c)), c, 1.25); g = (g - .5)*1.08 + .5;          // the faded fresco, a little fuller
+    vec2 d = p - LJ; float L = length(d);
+    g += vec3(.05,.04,.02)*smoothstep(.35, .0, L);                         // the light around Christ
+    DET = mix(1., .26, smoothstep(.06, .5, det));
+    DET = min(DET, mix(1., .11, smoothstep(.45, .8, det)));
+    DET = min(DET, mix(.16, 1., smoothstep(.05, .14, L)));                   // his face and hands: the finest brush
     return g;
   }`;
 
@@ -114,7 +134,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   layout(location=1) in vec2 base;
   layout(location=2) in vec4 rnd;
   layout(location=3) in vec2 size;
-  uniform float T, MIX, BOIL;
+  uniform float T, MIX, MIX2, BOIL;
   out vec2 vUv; out vec3 vCol; out float vSeed;
   ${SCENE}
   void main(){
@@ -126,6 +146,11 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     vec2 dir = normalize(mix(dn, dd, k) + 1e-4);
     vec3 col = mix(cn, cd, k);
     float det = mix(detN, detD, k);
+    // then the third: repainted outward from Christ
+    vec2 dl; DET = 1.; vec3 cl = supper(p, dl); float detL = DET;
+    float order2 = .5*rnd.y + .5*clamp(length(p - LJ)/1.1, 0., 1.);
+    float k2 = smoothstep(order2 - .05, order2 + .05, MIX2*1.12 - .03);
+    dir = normalize(mix(dir, dl, k2) + 1e-4); col = mix(col, cl, k2); det = mix(det, detL, k2);
     float free = smoothstep(.35, 1., det);                  // how free the brush is here (low detail = free)
     // the hand: no two strokes the same
     float calm0 = 1. - k;
@@ -169,13 +194,16 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
   void main(){ vp = (q*.5+.5)*vec2(A,1.); gl_Position = vec4(q,0.,1.); }`;
   const FS_BG = `#version 300 es
   precision highp float;
-  in vec2 vp; uniform float MIX; out vec4 o;
+  in vec2 vp; uniform float MIX, MIX2; out vec4 o;
   ${SCENE}
   void main(){
     vec2 d1, d2; float m = smoothstep(.15, .9, MIX);
     DET = 1.; vec3 cn = night(vp, d1); float dn = DET; DET = 1.; vec3 cd = dawn(vp, d2); float dd = DET;
     vec3 c = mix(cn, cd, m);
-    float fine = 1. - smoothstep(.4, .8, mix(dn, dd, m));
+    float dm = mix(dn, dd, m);
+    vec2 d3; DET = 1.; vec3 cl = supper(vp, d3); float m2 = smoothstep(.15, .9, MIX2);
+    c = mix(c, cl, m2); dm = mix(dm, DET, m2);
+    float fine = 1. - smoothstep(.4, .8, dm);
     fine = max(fine, .85*(1. - m));                            // at night the ground is Aivazovsky's own soft painting     // where a small brush works, the ground beneath is painted true
     float weave = .5 + .5*sin(vp.x*900.)*sin(vp.y*900.);
     o = vec4(c*mix(.66, 1., fine) + vec3(.05,.04,.03)*weave*(1. - fine), 1.);
@@ -190,7 +218,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     }
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; for (const n of ['A', 'T', 'MIX', 'BOIL', 'B', 'RN', 'RD', 'MOON', 'LC', 'TN', 'FN', 'TD', 'FD']) u[n] = gl.getUniformLocation(p, n);
+    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL']) u[n] = gl.getUniformLocation(p, n);
     return { p, u };
   }
   const SP = prog(VS, FS), BG = prog(VS_BG, FS_BG);
@@ -206,7 +234,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   }
-  const tex = { TN: texture(nightImg), FN: texture(nightFlow), TD: texture(dayImg), FD: texture(dayFlow) };
+  const tex = { TN: texture(nightImg), FN: texture(nightFlow), TD: texture(dayImg), FD: texture(dayFlow), TL: texture(supImg), FL: texture(supFlow) };
 
   /* a brush: bristle streaks in a tapered stroke, fat at the loaded head, thin at the dry tail (two loads stacked) */
   function bristles() {
@@ -239,7 +267,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
 
   /* where the frescoes sit on this screen */
   // cover the screen with each painting, keeping its focus in view (meta: focus u,v; moon; hands)
-  let A = 1, RN = [0, 0, 1, 1], RD = [0, 0, 1, 1], LC = [.5, .5], MOON = meta.moon;
+  let A = 1, RN = [0, 0, 1, 1], RD = [0, 0, 1, 1], RL = [0, 0, 1, 1], LC = [.5, .5], LJ = [.5, .5], MOON = meta.moon;
+  const FINE = new Float32Array([].concat(...(meta.dayFine || []).slice(0, 4), ...Array(12).fill(0)).slice(0, 12));
   function cover(img, focus) {
     const ia = img.width / img.height;
     let w, h; if (A > ia) { w = A; h = A / ia; } else { h = 1; w = ia; }
@@ -251,10 +280,20 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     RN = cover(nightImg, meta.nightFocus);
     RD = cover(dayImg, meta.dayFocus);
     LC = [RD[0] + meta.hands[0] * RD[2], RD[1] + (1 - meta.hands[1]) * RD[3]];
+    RL = cover(supImg, meta.supperFocus);
+    LJ = [RL[0] + meta.christ[0] * RL[2], RL[1] + (1 - meta.christ[1]) * RL[3]];
   }
 
   /* strokes: three passes, broad underpainting → body → fine top marks */
   let vao, count = 0; const SEG = 8;
+  function readAlpha(im) {          // the detail map (alpha of a flow map), read once on the CPU
+    if (im._a) return im._a;
+    const c = document.createElement('canvas'); c.width = Math.min(360, im.width); c.height = Math.round(c.width * im.height / im.width);
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height).data, a = new Uint8Array(c.width * c.height);
+    for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3];
+    return (im._a = { a, w: c.width, h: c.height });
+  }
   function lay() {
     A = canvas.clientWidth / canvas.clientHeight; place();
     // a narrow screen shows the figures smaller, so it gets a smaller brush (and more strokes to cover)
@@ -271,6 +310,31 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
         const f = Math.min(2.4, Math.max(.4, Math.exp(g * .42)));
         data.push(x * 1.04 - .02, y * 1.04 - .02, r(), r(), r(), r(), len * f, wid * f);
       }
+    }
+    // the figures are painted, not sprinkled: where a painting has detail (faces, hands, folds), lay many more
+    // small strokes, in proportion to the detail, so the form is built entirely out of paint
+    const dens = [[dayFlow, RD], [nightFlow, RN], [supFlow, RL]].map(([im, R]) => ({ R, ...readAlpha(im) }));
+    const detailAt = (x, y) => { let m = 0; for (const d of dens) {
+      const u = (x * A - d.R[0]) / d.R[2], v = 1 - (y - d.R[1]) / d.R[3];
+      if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+      m = Math.max(m, d.a[Math.min(d.h - 1, v * d.h | 0) * d.w + Math.min(d.w - 1, u * d.w | 0)] / 255); }
+      for (let i = 0; i < 4; i++) { const fu = FINE[i * 3], fv = FINE[i * 3 + 1], fr = FINE[i * 3 + 2]; if (!fr) continue;
+        const u = (x * A - RD[0]) / RD[2], v = 1 - (y - RD[1]) / RD[3];
+        if (Math.hypot(u - fu, (v - fv) * RD[3] / RD[2]) < fr * 1.6) m = Math.max(m, .9); }
+      return m; };
+    const NX = Math.round(42000 * A * (narrow ? 2.2 : 1));
+    for (let i = 0; i < NX; i++) {
+      const x = r(), y = r(), dv = detailAt(x, y);
+      if (r() > Math.pow(Math.max(0, dv - .06) / .6, 1.1)) continue;
+      const f = .7 + r() * .6;
+      data.push(x * 1.04 - .02, y * 1.04 - .02, r(), r(), r(), r(), .05 * sm * f, .018 * sm * f);
+    }
+    const NF = Math.round(70000 * A * (narrow ? 2.2 : 1));     // and the finest touches, only where the detail is highest
+    for (let i = 0; i < NF; i++) {
+      const x = r(), y = r(), dv = detailAt(x, y);
+      if (dv < .45 || r() > (dv - .45) / .4) continue;
+      const f = .75 + r() * .5;
+      data.push(x * 1.04 - .02, y * 1.04 - .02, r(), r(), r(), r(), .055 * sm * f, .02 * sm * f);
     }
     count = data.length / 8;
     vao = gl.createVertexArray(); gl.bindVertexArray(vao);
@@ -297,8 +361,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     if (!vao || Math.abs(a - A) / A > .12) lay();   // re-lay only if the shape really changed (not for a URL bar)
   }
   function bind(P) {
-    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform3fv(P.u.MOON, MOON); gl.uniform2fv(P.u.LC, LC);
-    ['TN', 'FN', 'TD', 'FD'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
+    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
+    ['TN', 'FN', 'TD', 'FD', 'TL', 'FL'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
   const pin = (location.search.match(/[?&]p=([\d.]+)/) || [])[1];   // test hook: ?p=0.9 holds the scroll at 90%
@@ -310,15 +374,15 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow], meta) {
     const dt = Math.min(.1, (now - last) / 1000); last = now;
     const goal = forced ?? target();
     cur = still || forced !== null ? goal : cur + (goal - cur) * (1 - Math.exp(-dt * 3.2));
-    const mix = smooth(.16, .78, cur);
+    const mix = smooth(.12, .42, cur), mix2 = smooth(.58, .86, cur);   // night → day → the Last Supper
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-    gl.useProgram(BG.p); bind(BG); gl.uniform1f(BG.u.MIX, mix);
+    gl.useProgram(BG.p); bind(BG); gl.uniform1f(BG.u.MIX, mix); gl.uniform1f(BG.u.MIX2, mix2);
     gl.bindVertexArray(bgVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(SP.p); bind(SP);
-    gl.uniform1f(SP.u.T, still ? 0 : now / 1000); gl.uniform1f(SP.u.MIX, mix); gl.uniform1f(SP.u.BOIL, still ? 0 : 1);
+    gl.uniform1f(SP.u.T, still ? 0 : now / 1000); gl.uniform1f(SP.u.MIX, mix); gl.uniform1f(SP.u.MIX2, mix2); gl.uniform1f(SP.u.BOIL, still ? 0 : 1);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, brush); gl.uniform1i(SP.u.B, 0);
     gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, (SEG + 1) * 2, count);
     if (!once) requestAnimationFrame(frame);

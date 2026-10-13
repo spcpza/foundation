@@ -10,7 +10,8 @@ canvas[:oy] = a[:1]; canvas[oy + h:] = a[-1:]
 pre = Image.fromarray(canvas.astype(np.uint8)).filter(ImageFilter.GaussianBlur(30)); pre.paste(im, (0, oy))
 known = np.zeros((H, w), np.uint8); known[oy:oy + h] = 255
 mask = Image.fromarray(255 - known).filter(ImageFilter.MaxFilter(41)).filter(ImageFilter.GaussianBlur(14))
-P = ("Renaissance oil painting in the manner of Michelangelo: above, a luminous blue morning sky with soft white and golden "
+import os
+P = os.environ.get("PROMPT") or ("Renaissance oil painting in the manner of Michelangelo: above, a luminous blue morning sky with soft white and golden "
      "clouds; below, the Garden of Eden in morning light, green meadows of roses and wildflowers, leafy trees and cypresses, "
      "a winding path, rich harmonious colours, masterpiece")
 N = "people, figure, person, face, body, angel, animal, text, signature, frame, border, photo, blurry, seam, split image"
