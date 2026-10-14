@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791967020').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967020`)))
+else fetch('/img/scene.json?v=1791967747').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967747`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -239,19 +239,21 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   // a torn strip of another painting, showing its heart at a size you can recognise (a hand, a face, the light)
   uniform vec2 FN_, FD_, FL_;
   uniform vec3 HALO;               // Christ's head in the Last Supper: u, v (from top), radius (in widths)      // focal points (uv) of the night, the day, the Last Supper
+  // a torn strip of another painting: any piece of it, at random (now and then its heart: a face, the hands, the light)
   vec3 other(sampler2D SA, vec2 fa, sampler2D SB, vec2 fb, vec2 p, float k){
-    bool useA = hh(k*5.3) < .5; vec2 f = useA ? fa : fb;
-    vec2 jit = (vec2(hh(k*1.7), hh(k*3.1 + 2.)) - .5) * vec2(.06, .04);
-    float row = fract(p.y*12. + hh(floor(T*5.) + 4.)*5.) - .5;               // where in the torn strip we are
-    float sx = hh(k*9.1) - .5;                                               // the strip slides as one piece
-    vec2 u2 = clamp(f + jit + vec2((p.x - A*.5 + sx*.3)*.55, -row*.18), .001, .999);   // that painting's heart, at a natural scale
+    bool useA = hh(k*5.3 + 1.7) < .5; vec2 f = useA ? fa : fb;
+    vec2 anyw = vec2(.12 + .76*hh(k*1.7), .18 + .64*hh(k*3.1 + 2.));
+    vec2 c = mix(anyw, f + (vec2(hh(k*2.2), hh(k*6.6)) - .5)*vec2(.35, .25), step(.5, hh(k*8.9)));   // half the time near the figures                            // mostly anywhere, sometimes the heart
+    float sc = .9 + .7*hh(k*4.4);
+    float row = fract(p.y*7. + hh(floor(T*5.) + 4.)*5.) - .5;
+    vec2 u2 = clamp(c + vec2((p.x - floor(p.x*2.6)/2.6)*sc*.55, -row*.09*sc*2.), .001, .999);   // each piece shows its own patch
     return useA ? texture(SA, u2).rgb : texture(SB, u2).rgb;
   }
-  float GA;   // how much of this pixel is actually torn (the rest lets the painting show)
+  float GA, GT;   // how much of this pixel is torn; GT: how much is a strip of another painting
   vec3 glitch(sampler2D Tx, sampler2D Oa, vec2 fa, sampler2D Ob, vec2 fb, vec4 R, vec2 p, float amt, float seed){
     // torn slices that slide, a rolling wave, a colour split, smears; and some slices are torn from the other paintings
     float fr = floor(T*14. + seed), fr2 = floor(T*5. + seed);
-    float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.), band3 = floor(p.y*12. + hh(fr2 + 4.)*5.);
+    float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.), band3 = floor(p.y*7. + hh(fr2 + 4.)*5.);
     float on = step(.6 - .12*amt, hh(band2*3.1 + fr*.7 + seed));
     float slice = on * (hh(band*1.7 + fr) - .5) * .16 * amt;
     float wave = sin(p.y*38. + T*7. + seed) * .006 * amt + sin(p.y*170. - T*23.) * .0018 * amt;
@@ -262,11 +264,18 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     vec3 sm = vec3(0.); for (int i = 1; i <= 6; i++) sm += texture(Tx, uv - vec2(float(i)*.008*on/R.z, 0.)).rgb;
     c = mix(c, max(c, sm/6.), .35*on);
     // strips torn from the other paintings, with their own colour split
-    float tear = step(.72 - .1*amt, hh(band3*2.3 + floor(T*6. + seed)*1.1 + seed));
-    float xs = smoothstep(.0, .02, fract(p.x*1.3 + hh(band3 + fr2)) ) * step(fract(p.x*1.3 + hh(band3 + fr2)), .55 + .4*hh(band3*7.));
-    vec3 oc = other(Oa, fa, Ob, fb, p, band3 + fr2*13. + seed);
+    // torn strips: several pieces side by side in a row, each from a different place; soft ragged edges, never hard boxes
+    float segx = p.x*2.6 + hh(band3 + fr2)*3.;
+    float sid = floor(segx), fx = fract(segx);
+    float key = band3*7.1 + sid*3.3 + fr2*13. + seed;
+    float tear = step(.78 - .2*amt, hh(key*2.3 + floor(T*6. + seed)*1.1));
+    float rowf = fract(p.y*7. + hh(fr2 + 4.)*5.);
+    float rag = .07*(vn(vec2(p.y*70., key*3.7)) - .5) + .035*(vn(vec2(p.y*260., key)) - .5) + .05*(vn(vec2(p.x*60., key*1.3)) - .5);   /* torn paper, not perforations */
+    float xs = smoothstep(.0, .06, fx + rag) * smoothstep(.0, .06, (.6 + .35*hh(key*7.)) - fx + rag)
+             * smoothstep(.0, .12, rowf + rag) * smoothstep(.0, .12, 1. - rowf + rag);
+    vec3 oc = other(Oa, fa, Ob, fb, p, key);
     c = mix(c, oc*vec3(1.05, 1., .95), tear*xs);
-    GA = clamp(max(on*.95, tear*xs) + .12, 0., 1.);
+    GA = clamp(max(on*.95, tear*xs) + .12, 0., 1.); GT = tear*xs;
     c = c*vec3(1.08, 1.03, .92) + vec3(.07, .06, .03);
     c *= .94 + .06*sin(gl_FragCoord.y*2.2 + T*30.);
     return c;
@@ -278,7 +287,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     vec3 col = vec3(0.); float a = 0.;
     // night: the whole storm glitches, hardest at God's light
     float mn = .22 + .5*smoothstep(.6, .05, length(vp - GL));
-    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 1.1, 1.); float g_ = wN*mn*GA; col += c*g_; a += g_; }
+    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 1.1, 1.); float g_ = wN*max(mn*GA, GT); col += c*g_; a += g_; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
