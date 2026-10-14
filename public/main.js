@@ -45,12 +45,12 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791939926').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift'].map(n => load(`/img/${n}.webp?v=1791939926`)))
+else fetch('/img/scene.json?v=1791947561').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791947561`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
-function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftImg], meta) {
+function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftImg, auraImg], meta) {
   // Each picture: its figures cut free of the plaster and placed (see place()), in a painted
   // world around it — a starry night, or a sunlit sky — so any screen shape is a whole picture.
   // Each picture is one whole painting: Michelangelo's fresco, grown past its frame in his manner.
@@ -232,44 +232,60 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   // blocks of light, in bursts — the classical painting interrupted by something not of this world ----
   const FS_GL = `#version 300 es
   precision highp float;
-  in vec2 vp; uniform float MIX, MIX2, T; uniform sampler2D TG; out vec4 o;
+  in vec2 vp; uniform float MIX, MIX2, T; uniform sampler2D TG, TA; out vec4 o;
   ${SCENE}
   float hh(float n){ return fract(sin(n*127.1)*43758.5453); }
-  vec3 glitch(sampler2D Tx, vec4 R, vec2 p, float amt, float seed, out vec2 uv){
-    // more glitch, no blocks: fine slices that tear sideways, a rolling wave through the signal, a wide
-    // colour split, and smears of light dragged along the scan — all soft-edged, nothing quantised
+  // one torn strip of another painting: a fragment of the other two pictures shows through the tear
+  // a torn strip of another painting, showing its heart at a size you can recognise (a hand, a face, the light)
+  uniform vec2 FN_, FD_, FL_;      // focal points (uv) of the night, the day, the Last Supper
+  vec3 other(sampler2D SA, vec2 fa, sampler2D SB, vec2 fb, vec2 p, float k){
+    bool useA = hh(k*5.3) < .5; vec2 f = useA ? fa : fb;
+    vec2 jit = (vec2(hh(k*1.7), hh(k*3.1 + 2.)) - .5) * vec2(.06, .04);
+    float row = fract(p.y*12. + hh(floor(T*5.) + 4.)*5.) - .5;               // where in the torn strip we are
+    float sx = hh(k*9.1) - .5;                                               // the strip slides as one piece
+    vec2 u2 = clamp(f + jit + vec2((p.x - A*.5 + sx*.3)*.55, -row*.18), .001, .999);   // that painting's heart, at a natural scale
+    return useA ? texture(SA, u2).rgb : texture(SB, u2).rgb;
+  }
+  float GA;   // how much of this pixel is actually torn (the rest lets the painting show)
+  vec3 glitch(sampler2D Tx, sampler2D Oa, vec2 fa, sampler2D Ob, vec2 fb, vec4 R, vec2 p, float amt, float seed){
+    // torn slices that slide, a rolling wave, a colour split, smears; and some slices are torn from the other paintings
     float fr = floor(T*14. + seed), fr2 = floor(T*5. + seed);
-    float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.);
-    float on = step(.38, hh(band2*3.1 + fr*.7 + seed));
+    float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.), band3 = floor(p.y*12. + hh(fr2 + 4.)*5.);
+    float on = step(.6 - .12*amt, hh(band2*3.1 + fr*.7 + seed));
     float slice = on * (hh(band*1.7 + fr) - .5) * .16 * amt;
     float wave = sin(p.y*38. + T*7. + seed) * .006 * amt + sin(p.y*170. - T*23.) * .0018 * amt;
     vec2 q = p + vec2(slice + wave, 0.);
-    uv = clamp(vec2((q.x - R.x)/R.z, 1. - (q.y - R.y)/R.w), .001, .999);
+    vec2 uv = clamp(vec2((q.x - R.x)/R.z, 1. - (q.y - R.y)/R.w), .001, .999);
     float ch = (.012 + .03*on*hh(band + fr*3.)) * amt / R.z;
     vec3 c = vec3(texture(Tx, uv + vec2(ch, ch*.25)).r, texture(Tx, uv).g, texture(Tx, uv - vec2(ch, ch*.25)).b);
-    // smear: light dragged along the scan line, like a signal stretched by something passing through
-    vec3 sm = vec3(0.); for (int i = 1; i <= 6; i++) sm += texture(Tx, uv - vec2(float(i)*.006*amt*on/R.z*3., 0.)).rgb;
-    c = mix(c, max(c, sm/6.), .55*on);
-    c = c*vec3(1.1, 1.04, .9) + vec3(.1, .08, .04);                          // heaven's light: gold-white
-    c += vec3(1., .93, .75) * smoothstep(.975, 1., hh(floor(p.y*300.) + fr*1.9 + seed)) * .5;   // thin bright scan-lines
-    c *= .93 + .07*sin(gl_FragCoord.y*2.2 + T*30.);
+    vec3 sm = vec3(0.); for (int i = 1; i <= 6; i++) sm += texture(Tx, uv - vec2(float(i)*.008*on/R.z, 0.)).rgb;
+    c = mix(c, max(c, sm/6.), .35*on);
+    // strips torn from the other paintings, with their own colour split
+    float tear = step(.72 - .1*amt, hh(band3*2.3 + floor(T*6. + seed)*1.1 + seed));
+    float xs = smoothstep(.0, .02, fract(p.x*1.3 + hh(band3 + fr2)) ) * step(fract(p.x*1.3 + hh(band3 + fr2)), .55 + .4*hh(band3*7.));
+    vec3 oc = other(Oa, fa, Ob, fb, p, band3 + fr2*13. + seed);
+    c = mix(c, oc*vec3(1.05, 1., .95), tear*xs);
+    GA = clamp(max(on*.95, tear*xs) + .12, 0., 1.);
+    c = c*vec3(1.08, 1.03, .92) + vec3(.07, .06, .03);
+    c *= .94 + .06*sin(gl_FragCoord.y*2.2 + T*30.);
     return c;
   }
   void main(){
     float m = smoothstep(.1, .36, MIX), m2 = smoothstep(.1, .9, MIX2);
     float wN = 1. - m, wD = m*(1. - m2), wS = m2;
-    float burst = .6 + .4*smoothstep(.3, .7, hh(floor(T*2.4)));   /* more often, softer in and out */                     // bursts, then a quieter shimmer
-    vec2 uv; vec3 col = vec3(0.); float a = 0.;
-    // night: around God's light in the storm
-    float rn = length(vp - GL); float mn = smoothstep(.42, .06, rn) * (.6 + .4*hh(floor(vp.y*60.) + floor(T*7.)));
-    if (false && wN*mn > .01) {   /* night: no glitch (Fred: not good) */ vec3 c = glitch(TN, RN, vp, 1., 1., uv); col += c*wN*mn; a += wN*mn; }
+    float burst = .6 + .4*smoothstep(.3, .7, hh(floor(T*2.4)));
+    vec3 col = vec3(0.); float a = 0.;
+    // night: the whole storm glitches, hardest at God's light
+    float mn = .85 + .15*smoothstep(.55, .05, length(vp - GL));
+    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 2.2, 1.); float g_ = wN*mn*GA; col += c*g_; a += g_; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
-    if (wD*md > .01) { vec3 c = glitch(TD, RD, vp, 1.3, 7., uv); col += c*wD*md; a += wD*md; }
-    // the Last Supper: the light around Christ
-    float rs = length((vp - LJ - vec2(0., .075*RL.z))*vec2(1., 1.15))/RL.z; float ms = smoothstep(.19, .1, rs)*smoothstep(.047, .075, rs)*smoothstep(.01, .06, (vp.y - LJ.y)/RL.z) /* a ring around his head: his face stays clear */ * (.5 + .5*hh(floor(vp.y*80.) + floor(T*6.)));
-    if (false && wS*ms > .01) {   /* Last Supper: no glitch */ vec3 c = glitch(TL, RL, vp, .8, 13., uv); col += c*wS*ms; a += wS*ms; }
+    if (wD*md > .01) { vec3 c = glitch(TD, TN, FN_, TL, FL_, RD, vp, 1.3, 7.); float g_ = wD*md*GA; col += c*g_; a += g_; }
+    // the Last Supper: the air breaking around Christ
+    vec2 su = clamp(vec2((vp.x - RL.x)/RL.z, 1. - (vp.y - RL.y)/RL.w), 0., 1.);
+    float ms = clamp(texture(TA, su).r*1.6, 0., 1.);
+    if (wS*ms > .01) { vec3 c = glitch(TL, TN, FN_, TD, FD_, RL, vp, 2.2, 13.); float g_ = wS*ms*GA; col += c*g_; a += g_; }
     if (a < .01) discard;
     o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
@@ -283,7 +299,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     }
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG']) u[n] = gl.getUniformLocation(p, n);
+    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA', 'FN_', 'FD_', 'FL_']) u[n] = gl.getUniformLocation(p, n);
     return { p, u };
   }
   const SP = prog(VS, FS), BG = prog(VS_BG, FS_BG), GLX = prog(VS_BG, FS_GL);
@@ -299,7 +315,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   }
-  const tex = { TN: texture(nightImg), FN: texture(nightFlow), TD: texture(dayImg), FD: texture(dayFlow), TL: texture(supImg), FL: texture(supFlow), TG: texture(riftImg) };
+  const tex = { TN: texture(nightImg), FN: texture(nightFlow), TD: texture(dayImg), FD: texture(dayFlow), TL: texture(supImg), FL: texture(supFlow), TG: texture(riftImg), TA: texture(auraImg) };
 
   /* a brush: bristle streaks in a tapered stroke, fat at the loaded head, thin at the dry tail (two loads stacked) */
   function bristles() {
@@ -427,8 +443,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     if (!vao || Math.abs(a - A) / A > .12) lay();   // re-lay only if the shape really changed (not for a URL bar)
   }
   function bind(P) {
-    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
-    ['TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
+    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); if (P.u.FN_) { gl.uniform2fv(P.u.FN_, [MOON[0], 1 - MOON[1]]); gl.uniform2fv(P.u.FD_, [meta.hands[0], 1 - meta.hands[1]]); gl.uniform2fv(P.u.FL_, [meta.christ[0], 1 - meta.christ[1] - .06]); } gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
+    ['TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
   const gt = (location.search.match(/[?&]gt=([\d.]+)/) || [])[1];   // test hook: ?gt=2.3 freezes the glitch clock
