@@ -16,26 +16,16 @@ def seg(box, pos, neg):
 up = seg((1080, 570, 1510, 910),
          pos=[(1290, 640), (1300, 700), (1180, 800), (1240, 820), (1380, 800), (1330, 760), (1130, 880), (1450, 880), (1270, 610)],
          neg=[(1220, 620), (1350, 620), (1205, 700), (1405, 700), (1430, 740), (1300, 905), (1180, 905), (1110, 760), (1480, 820)])
-lo = seg((1100, 1084, 1460, 1250),
-         pos=[(1300, 1110), (1220, 1120), (1380, 1120), (1150, 1210), (1420, 1200), (1250, 1150), (1350, 1150)],
-         neg=[(1290, 1200), (1110, 1110), (1450, 1110), (1290, 1240), (1200, 1240)])
-# the robe hem: close the model's holes in the faded blue, then fill any hole fully enclosed
-from collections import deque
-L = Image.fromarray((lo * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.MinFilter(11))
-lb = np.asarray(L) > 127
-inv = ~lb; seen = np.zeros_like(inv); q = deque()
-for y in range(H):
-    for x in (0, W - 1):
-        if inv[y, x]: seen[y, x] = True; q.append((y, x))
-for x in range(W):
-    for y in (0, H - 1):
-        if inv[y, x] and not seen[y, x]: seen[y, x] = True; q.append((y, x))
-while q:
-    y, x = q.popleft()
-    for dy, dx in ((1,0),(-1,0),(0,1),(0,-1)):
-        ny, nx = y+dy, x+dx
-        if 0 <= ny < H and 0 <= nx < W and inv[ny, nx] and not seen[ny, nx]: seen[ny, nx] = True; q.append((ny, nx))
-lo = (~seen).astype(np.float32)
+# below the table: the robe, then each leg and foot on its own, so no floor is caught between or beside them
+robe = seg((1160, 1086, 1412, 1170), pos=[(1300, 1110), (1220, 1115), (1380, 1112), (1250, 1140), (1350, 1140)],
+           neg=[(1300, 1168), (1168, 1168)])
+lining = seg((1164, 1128, 1410, 1182), pos=[(1185, 1145), (1225, 1155), (1340, 1160), (1380, 1146), (1300, 1152)],
+             neg=[(1262, 1180), (1300, 1180)])
+legL = seg((1118, 1128, 1222, 1238), pos=[(1170, 1170), (1150, 1210), (1185, 1150)], neg=[(1125, 1150), (1215, 1215), (1125, 1236)])
+legR = seg((1362, 1132, 1452, 1238), pos=[(1395, 1170), (1425, 1210), (1385, 1150)], neg=[(1445, 1145), (1368, 1225), (1450, 1236)])
+def tidy(x, k=5):
+    return np.asarray(Image.fromarray((x * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.MinFilter(k)), np.float32) / 255
+lo = np.maximum(np.maximum(tidy(robe, 7), tidy(lining, 7)), np.maximum(tidy(legL), tidy(legR)))
 m = np.maximum(up, lo)
 m[905:1084] = 0                                                    # the tablecloth between body and feet is not him
 M = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MedianFilter(3)).filter(ImageFilter.GaussianBlur(.8))
