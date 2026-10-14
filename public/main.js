@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791947561').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791947561`)))
+else fetch('/img/scene.json?v=1791958023').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791958023`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -237,7 +237,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   float hh(float n){ return fract(sin(n*127.1)*43758.5453); }
   // one torn strip of another painting: a fragment of the other two pictures shows through the tear
   // a torn strip of another painting, showing its heart at a size you can recognise (a hand, a face, the light)
-  uniform vec2 FN_, FD_, FL_;      // focal points (uv) of the night, the day, the Last Supper
+  uniform vec2 FN_, FD_, FL_;
+  uniform vec3 HALO;               // Christ's head in the Last Supper: u, v (from top), radius (in widths)      // focal points (uv) of the night, the day, the Last Supper
   vec3 other(sampler2D SA, vec2 fa, sampler2D SB, vec2 fb, vec2 p, float k){
     bool useA = hh(k*5.3) < .5; vec2 f = useA ? fa : fb;
     vec2 jit = (vec2(hh(k*1.7), hh(k*3.1 + 2.)) - .5) * vec2(.06, .04);
@@ -276,8 +277,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float burst = .6 + .4*smoothstep(.3, .7, hh(floor(T*2.4)));
     vec3 col = vec3(0.); float a = 0.;
     // night: the whole storm glitches, hardest at God's light
-    float mn = .85 + .15*smoothstep(.55, .05, length(vp - GL));
-    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 2.2, 1.); float g_ = wN*mn*GA; col += c*g_; a += g_; }
+    float mn = .22 + .5*smoothstep(.6, .05, length(vp - GL));
+    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 1.1, 1.); float g_ = wN*mn*GA; col += c*g_; a += g_; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
@@ -285,7 +286,20 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     // the Last Supper: the air breaking around Christ
     vec2 su = clamp(vec2((vp.x - RL.x)/RL.z, 1. - (vp.y - RL.y)/RL.w), 0., 1.);
     float ms = clamp(texture(TA, su).r*1.6, 0., 1.);
+    vec2 hc = vec2(RL.x + HALO.x*RL.z, RL.y + (1. - HALO.y)*RL.w); float hr = HALO.z*RL.z;
+    float hd = length((vp - hc)*vec2(1., 1.08));
+    float halo = smoothstep(hr*.16, 0., abs(hd - hr*1.45)) * step(hc.y - hr*.55, vp.y);   /* a glitching halo ring behind his head */
+    ms = max(ms, halo*.6);
     if (wS*ms > .01) { vec3 c = glitch(TL, TN, FN_, TD, FD_, RL, vp, 2.2, 13.); float g_ = wS*ms*GA; col += c*g_; a += g_; }
+    // the halo itself: a ring of gold light behind his head, split into colour and torn by the scan like a signal from heaven
+    float hfr = floor(T*12.), hb = floor(vp.y*160.);
+    float hj = (hh(hb + hfr) - .5) * hr * .22 * step(.55, hh(floor(vp.y*40.) + hfr*.7));
+    float rr = length((vp + vec2(hj, 0.) - hc - vec2(hr*.05, 0.))*vec2(1., 1.08)), rg = length((vp + vec2(hj, 0.) - hc)*vec2(1., 1.08)), rb = length((vp + vec2(hj, 0.) - hc + vec2(hr*.05, 0.))*vec2(1., 1.08));
+    float w = hr*.07, R0 = hr*1.45, up = smoothstep(hc.y - hr*.7, hc.y - hr*.35, vp.y);
+    vec3 ring = vec3(exp(-pow((rr - R0)/w, 2.)), exp(-pow((rg - R0)/w, 2.)), exp(-pow((rb - R0)/w, 2.))) * up;
+    ring += vec3(1., .85, .5) * exp(-pow((rg - R0)/(w*4.), 2.)) * .35 * up;                      // its soft glow
+    float hv = wS * clamp(max(max(ring.r, ring.g), ring.b), 0., 1.) * (.75 + .25*hh(hb*.3 + hfr));
+    if (hv > .01) { col += vec3(1., .9, .62)*ring*3.*wS + vec3(.2,.1,0.)*ring.r; a += hv; }
     if (a < .01) discard;
     o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
@@ -299,7 +313,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     }
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA', 'FN_', 'FD_', 'FL_']) u[n] = gl.getUniformLocation(p, n);
+    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA', 'FN_', 'FD_', 'FL_', 'HALO']) u[n] = gl.getUniformLocation(p, n);
     return { p, u };
   }
   const SP = prog(VS, FS), BG = prog(VS_BG, FS_BG), GLX = prog(VS_BG, FS_GL);
@@ -443,7 +457,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     if (!vao || Math.abs(a - A) / A > .12) lay();   // re-lay only if the shape really changed (not for a URL bar)
   }
   function bind(P) {
-    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); if (P.u.FN_) { gl.uniform2fv(P.u.FN_, [MOON[0], 1 - MOON[1]]); gl.uniform2fv(P.u.FD_, [meta.hands[0], 1 - meta.hands[1]]); gl.uniform2fv(P.u.FL_, [meta.christ[0], 1 - meta.christ[1] - .06]); } gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
+    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); if (P.u.HALO) gl.uniform3fv(P.u.HALO, meta.halo || [0, 0, 0]); if (P.u.FN_) { gl.uniform2fv(P.u.FN_, [MOON[0], 1 - MOON[1]]); gl.uniform2fv(P.u.FD_, [meta.hands[0], 1 - meta.hands[1]]); gl.uniform2fv(P.u.FL_, [meta.christ[0], 1 - meta.christ[1] - .06]); } gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
     ['TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
