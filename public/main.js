@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791967953').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967953`)))
+else fetch('/img/scene.json?v=1791969749').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791969749`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -64,6 +64,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   uniform vec2 LC;                       // the light: between the two hands
   uniform vec3 FINE[4];                  // the day's faces and hands: u, v, radius (in widths) — always the finest brush
   uniform sampler2D TN, FN, TD, FD, TL, FL;   // paintings and their flow maps
+  uniform sampler2D TG;                  // day: R = glitch around God, G = cloth that ripples
   float DET = 1.;                        // brush size here (small for faces, hands and edges)
   float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
@@ -191,7 +192,11 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float press = mix(1.15, .5, smoothstep(-.5, .5, corner.x)) * (1. + .18*sin(corner.x*9. + rnd.y*20.));
     vec2 along = dir*corner.x*size.x, across = perp(dir)*(corner.y*size.y*press + bend*(corner.x*corner.x - .25)*size.x);
     float sweep = size.x > .06 ? mix(.3, 1., free) : 1.;   // great sweeps belong to the open sky, not across a face
-    vec2 q = p + drift*det + (along + across)*det*sweep*mix(1., .55, calm);   // Aivazovsky's soft clouds want a smaller, smoother brush
+    vec2 q = p + drift*det + (along + across)*det*sweep*mix(1., .55, calm);
+    // the sash and the angel's legs ripple like cloth in the wind (day only)
+    vec2 du0 = clamp(vec2((p.x - RD.x)/RD.z, 1. - (p.y - RD.y)/RD.w), 0., 1.);
+    float clw = textureLod(TG, du0, 0.).g * k * (1. - k2) * BOIL;
+    q += clw * vec2(sin(T*1.7 + p.y*34. + p.x*9.)*.005 + sin(T*.9 + p.x*14.)*.003, sin(T*1.3 + p.x*28. - p.y*6.)*.007);   // Aivazovsky's soft clouds want a smaller, smoother brush
     gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., det*.9 - .45 + rnd.z*.04, 1.);   // small brushes land on top
     vUv = corner + .5; vCol = col; vSeed = rnd.w;
   }`;
@@ -232,7 +237,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   // blocks of light, in bursts — the classical painting interrupted by something not of this world ----
   const FS_GL = `#version 300 es
   precision highp float;
-  in vec2 vp; uniform float MIX, MIX2, T; uniform sampler2D TG, TA; out vec4 o;
+  in vec2 vp; uniform float MIX, MIX2, T; uniform sampler2D TA; out vec4 o;
   ${SCENE}
   float hh(float n){ return fract(sin(n*127.1)*43758.5453); }
   // one torn strip of another painting: a fragment of the other two pictures shows through the tear
@@ -250,13 +255,14 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     return useA ? texture(SA, u2).rgb : texture(SB, u2).rgb;
   }
   float GA, GT;   // how much of this pixel is torn; GT: how much is a strip of another painting
+  float TS = 1.;  // glitch clock speed (the Last Supper runs it slow)
   vec3 glitch(sampler2D Tx, sampler2D Oa, vec2 fa, sampler2D Ob, vec2 fb, vec4 R, vec2 p, float amt, float seed){
     // torn slices that slide, a rolling wave, a colour split, smears; and some slices are torn from the other paintings
-    float fr = floor(T*14. + seed), fr2 = floor(T*5. + seed);
+    float fr = floor(T*14.*TS + seed), fr2 = floor(T*5.*TS + seed);
     float band = floor(p.y*140. + hh(fr2)*30.), band2 = floor(p.y*34. + hh(fr2 + 1.)*9.), band3 = floor(p.y*7. + hh(fr2 + 4.)*5.);
     float on = step(.6 - .12*amt, hh(band2*3.1 + fr*.7 + seed));
     float slice = on * (hh(band*1.7 + fr) - .5) * .16 * amt;
-    float wave = sin(p.y*38. + T*7. + seed) * .006 * amt + sin(p.y*170. - T*23.) * .0018 * amt;
+    float wave = sin(p.y*38. + T*7.*TS + seed) * .006 * amt + sin(p.y*170. - T*23.*TS) * .0018 * amt;
     vec2 q = p + vec2(slice + wave, 0.);
     vec2 uv = clamp(vec2((q.x - R.x)/R.z, 1. - (q.y - R.y)/R.w), .001, .999);
     float ch = (.012 + .03*on*hh(band + fr*3.)) * amt / R.z;
@@ -287,7 +293,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     vec3 col = vec3(0.); float a = 0.;
     // night: only a hint — a faint flicker in God's light, now and then, before heaven breaks through on the next pages
     float pulse = smoothstep(.62, .78, hh(floor(T*.9))) * (.6 + .4*hh(floor(T*7.)));
-    float mn = smoothstep(.3, .03, length(vp - GL)) * pulse;
+    float mn = (.45 + .55*smoothstep(.6, .03, length(vp - GL))) * pulse;   /* everywhere, a little more in God's light */
     if (wN*mn > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, .45, 1.); float g_ = wN*mn*GA*.55; col += c*g_; a += g_; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
@@ -300,10 +306,12 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float hd = length((vp - hc)*vec2(1., 1.08));
     float halo = smoothstep(hr*.16, 0., abs(hd - hr*1.45)) * step(hc.y - hr*.55, vp.y);   /* a glitching halo ring behind his head */
     ms = max(ms, halo*.6) * (1. - cm);                   /* the glitch stays behind him */
-    if (wS*ms > .01) { vec3 c = glitch(TL, TN, FN_, TD, FD_, RL, vp, 2.2, 13.); float g_ = wS*ms*GA; col += c*g_; a += g_; }
+    TS = .18;
+    if (wS*ms > .01) { vec3 c = glitch(TL, TN, FN_, TD, FD_, RL, vp, .55, 13.); float g_ = wS*ms*GA*.6; col += c*g_; a += g_; }
+    TS = 1.;
     // the halo itself: a ring of gold light behind his head, split into colour and torn by the scan like a signal from heaven
-    float hfr = floor(T*12.), hb = floor(vp.y*160.);
-    float hj = (hh(hb + hfr) - .5) * hr * .22 * step(.55, hh(floor(vp.y*40.) + hfr*.7));
+    float hfr = floor(T*2.), hb = floor(vp.y*160.);
+    float hj = (hh(hb + hfr) - .5) * hr * .07 * step(.7, hh(floor(vp.y*40.) + hfr*.7));
     float rr = length((vp + vec2(hj, 0.) - hc - vec2(hr*.05, 0.))*vec2(1., 1.08)), rg = length((vp + vec2(hj, 0.) - hc)*vec2(1., 1.08)), rb = length((vp + vec2(hj, 0.) - hc + vec2(hr*.05, 0.))*vec2(1., 1.08));
     float w = hr*.07, R0 = hr*1.45, up = smoothstep(hc.y - hr*.7, hc.y - hr*.35, vp.y);
     vec3 ring = vec3(exp(-pow((rr - R0)/w, 2.)), exp(-pow((rg - R0)/w, 2.)), exp(-pow((rb - R0)/w, 2.))) * up;
