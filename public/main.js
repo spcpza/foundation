@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791965016').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791965016`)))
+else fetch('/img/scene.json?v=1791967020').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967020`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -285,7 +285,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     if (wD*md > .01) { vec3 c = glitch(TD, TN, FN_, TL, FL_, RD, vp, 1.3, 7.); float g_ = wD*md*GA; col += c*g_; a += g_; }
     // the Last Supper: the air breaking around Christ
     vec2 su = clamp(vec2((vp.x - RL.x)/RL.z, 1. - (vp.y - RL.y)/RL.w), 0., 1.);
-    vec4 au = texture(TA, su); float ms = clamp(au.r*1.5, 0., 1.); float cm = smoothstep(.12, .4, au.g);   /* cm: Christ himself */
+    vec4 au = texture(TA, su); float ms = clamp(au.r*1.5, 0., 1.); float cm = smoothstep(.25, .65, au.g);   /* cm: Christ himself */
     vec2 hc = vec2(RL.x + HALO.x*RL.z, RL.y + (1. - HALO.y)*RL.w); float hr = HALO.z*RL.z;
     float hd = length((vp - hc)*vec2(1., 1.08));
     float halo = smoothstep(hr*.16, 0., abs(hd - hr*1.45)) * step(hc.y - hr*.55, vp.y);   /* a glitching halo ring behind his head */
@@ -297,10 +297,10 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float rr = length((vp + vec2(hj, 0.) - hc - vec2(hr*.05, 0.))*vec2(1., 1.08)), rg = length((vp + vec2(hj, 0.) - hc)*vec2(1., 1.08)), rb = length((vp + vec2(hj, 0.) - hc + vec2(hr*.05, 0.))*vec2(1., 1.08));
     float w = hr*.07, R0 = hr*1.45, up = smoothstep(hc.y - hr*.7, hc.y - hr*.35, vp.y);
     vec3 ring = vec3(exp(-pow((rr - R0)/w, 2.)), exp(-pow((rg - R0)/w, 2.)), exp(-pow((rb - R0)/w, 2.))) * up;
-    ring += vec3(1., .85, .5) * exp(-pow((rg - R0)/(w*4.), 2.)) * .35 * up;                      // its soft glow
+    ring += vec3(1., .85, .5) * exp(-pow((rg - R0)/(w*2.2), 2.)) * .14 * up * smoothstep(R0*.82, R0*.95, rg);   // a soft glow, kept off his hair
     ring *= 1. - cm;
     float hv = wS * clamp(max(max(ring.r, ring.g), ring.b), 0., 1.) * (.75 + .25*hh(hb*.3 + hfr));
-    if (hv > .01) { col += vec3(1., .9, .62)*ring*3.*wS + vec3(.2,.1,0.)*ring.r; a += hv; }
+    if (hv > .01) { col += vec3(1., .9, .62)*ring*2.4*wS + vec3(.2,.1,0.)*ring.r; a += hv; }
     if (a < .01) discard;
     o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
