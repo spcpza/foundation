@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791975384').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791975384`)))
+else fetch('/img/scene.json?v=1791989529').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791989529`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -65,6 +65,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   uniform vec3 FINE[4];                  // the day's faces and hands: u, v, radius (in widths) — always the finest brush
   uniform sampler2D TN, FN, TD, FD, TL, FL;   // paintings and their flow maps
   uniform sampler2D TG;                  // day: R = glitch around God, G = cloth that ripples
+  uniform float TC;                      // time, for the cloth
   float DET = 1.;                        // brush size here (small for faces, hands and edges)
   float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
@@ -116,6 +117,10 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
 
   // ---- day: the Creation of Adam, the painting whole ----
   vec3 dawn(vec2 p, out vec2 dir){
+    // cloth: the painting itself flows here (a smooth travelling wave), so strokes and canvas move as one
+    vec2 du0 = clamp(vec2((p.x - RD.x)/RD.z, 1. - (p.y - RD.y)/RD.w), 0., 1.);
+    float clw = textureLod(TG, du0, 1.5).g;
+    p += clw * vec2(sin(TC*1.1 + p.y*26. + p.x*7.)*.0035 + sin(TC*.6 + p.x*11.)*.002, sin(TC*.9 + p.x*21. - p.y*5.)*.0045);
     vec2 uv; float coh, det, plaster;
     vec3 c = paintAt(TD, FD, RD, p, uv, dir, coh, det, plaster);
     vec3 g = mix(vec3(lum(c)), c, 1.3); g = (g - .5)*1.1 + .52;           // fuller colour, firmer form
@@ -193,10 +198,6 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     vec2 along = dir*corner.x*size.x, across = perp(dir)*(corner.y*size.y*press + bend*(corner.x*corner.x - .25)*size.x);
     float sweep = size.x > .06 ? mix(.3, 1., free) : 1.;   // great sweeps belong to the open sky, not across a face
     vec2 q = p + drift*det + (along + across)*det*sweep*mix(1., .55, calm);
-    // the sash and the angel's legs ripple like cloth in the wind (day only)
-    vec2 du0 = clamp(vec2((p.x - RD.x)/RD.z, 1. - (p.y - RD.y)/RD.w), 0., 1.);
-    float clw = textureLod(TG, du0, 0.).g * k * (1. - k2) * BOIL;
-    q += clw * vec2(sin(T*1.7 + p.y*34. + p.x*9.)*.005 + sin(T*.9 + p.x*14.)*.003, sin(T*1.3 + p.x*28. - p.y*6.)*.007);   // Aivazovsky's soft clouds want a smaller, smoother brush
     gl_Position = vec4(q.x/A*2. - 1., q.y*2. - 1., det*.9 - .45 + rnd.z*.04, 1.);   // small brushes land on top
     vUv = corner + .5; vCol = col; vSeed = rnd.w;
   }`;
@@ -332,7 +333,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     }
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA', 'FN_', 'FD_', 'FL_', 'HALO']) u[n] = gl.getUniformLocation(p, n);
+    const u = {}; for (const n of ['A', 'T', 'MIX', 'MIX2', 'BOIL', 'B', 'RN', 'RD', 'RL', 'LJ', 'GL', 'MOON', 'LC', 'FINE[0]', 'TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA', 'TC', 'FN_', 'FD_', 'FL_', 'HALO']) u[n] = gl.getUniformLocation(p, n);
     return { p, u };
   }
   const SP = prog(VS, FS), BG = prog(VS_BG, FS_BG), GLX = prog(VS_BG, FS_GL);
@@ -476,7 +477,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     if (!vao || Math.abs(a - A) / A > .12) lay();   // re-lay only if the shape really changed (not for a URL bar)
   }
   function bind(P) {
-    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); if (P.u.HALO) gl.uniform3fv(P.u.HALO, meta.halo || [0, 0, 0]); if (P.u.FN_) { gl.uniform2fv(P.u.FN_, [MOON[0], 1 - MOON[1]]); gl.uniform2fv(P.u.FD_, [meta.hands[0], 1 - meta.hands[1]]); gl.uniform2fv(P.u.FL_, [meta.christ[0], 1 - meta.christ[1] - .06]); } gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
+    gl.uniform1f(P.u.A, A); gl.uniform4fv(P.u.RN, RN); gl.uniform4fv(P.u.RD, RD); gl.uniform4fv(P.u.RL, RL); gl.uniform2fv(P.u.LJ, LJ); if (P.u.TC) gl.uniform1f(P.u.TC, still ? 0 : performance.now() / 1000); if (P.u.HALO) gl.uniform3fv(P.u.HALO, meta.halo || [0, 0, 0]); if (P.u.FN_) { gl.uniform2fv(P.u.FN_, [MOON[0], 1 - MOON[1]]); gl.uniform2fv(P.u.FD_, [meta.hands[0], 1 - meta.hands[1]]); gl.uniform2fv(P.u.FL_, [meta.christ[0], 1 - meta.christ[1] - .06]); } gl.uniform2fv(P.u.GL, GLp); gl.uniform3fv(P.u.MOON, MOON); gl.uniform3fv(P.u['FINE[0]'], FINE); gl.uniform2fv(P.u.LC, LC);
     ['TN', 'FN', 'TD', 'FD', 'TL', 'FL', 'TG', 'TA'].forEach((n, i) => { gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_2D, tex[n]); gl.uniform1i(P.u[n], 1 + i); });
   }
 
