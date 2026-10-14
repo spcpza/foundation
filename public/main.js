@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791906783').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift'].map(n => load(`/img/${n}.webp?v=1791906783`)))
+else fetch('/img/scene.json?v=1791939926').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift'].map(n => load(`/img/${n}.webp?v=1791939926`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -262,14 +262,14 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     vec2 uv; vec3 col = vec3(0.); float a = 0.;
     // night: around God's light in the storm
     float rn = length(vp - GL); float mn = smoothstep(.42, .06, rn) * (.6 + .4*hh(floor(vp.y*60.) + floor(T*7.)));
-    if (wN*mn > .01) { vec3 c = glitch(TN, RN, vp, 1., 1., uv); col += c*wN*mn; a += wN*mn; }
+    if (false && wN*mn > .01) {   /* night: no glitch (Fred: not good) */ vec3 c = glitch(TN, RN, vp, 1., 1., uv); col += c*wN*mn; a += wN*mn; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
     if (wD*md > .01) { vec3 c = glitch(TD, RD, vp, 1.3, 7., uv); col += c*wD*md; a += wD*md; }
     // the Last Supper: the light around Christ
     float rs = length((vp - LJ - vec2(0., .075*RL.z))*vec2(1., 1.15))/RL.z; float ms = smoothstep(.19, .1, rs)*smoothstep(.047, .075, rs)*smoothstep(.01, .06, (vp.y - LJ.y)/RL.z) /* a ring around his head: his face stays clear */ * (.5 + .5*hh(floor(vp.y*80.) + floor(T*6.)));
-    if (wS*ms > .01) { vec3 c = glitch(TL, RL, vp, .8, 13., uv); col += c*wS*ms; a += wS*ms; }
+    if (false && wS*ms > .01) {   /* Last Supper: no glitch */ vec3 c = glitch(TL, RL, vp, .8, 13., uv); col += c*wS*ms; a += wS*ms; }
     if (a < .01) discard;
     o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
