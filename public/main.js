@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791989529').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791989529`)))
+else fetch('/img/scene.json?v=1791993889').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791993889`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -311,9 +311,10 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     if (wS*ms > .01) { vec3 c = glitch(TL, TN, FN_, TD, FD_, RL, vp, .55, 13.); float g_ = wS*ms*GA*.6; col += c*g_; a += g_; }
     TS = 1.;
     // the halo itself: a ring of gold light behind his head, split into colour and torn by the scan like a signal from heaven
-    float hfr = floor(T*2.), hb = floor(vp.y*160.);
-    float hj = (hh(hb + hfr) - .5) * hr * .07 * step(.7, hh(floor(vp.y*40.) + hfr*.7));
-    float rr = length((vp + vec2(hj, 0.) - hc - vec2(hr*.05, 0.))*vec2(1., 1.08)), rg = length((vp + vec2(hj, 0.) - hc)*vec2(1., 1.08)), rb = length((vp + vec2(hj, 0.) - hc + vec2(hr*.05, 0.))*vec2(1., 1.08));
+    float hfr = floor(T*6.), hb = floor(vp.y*160.);
+    float hj = (hh(hb + hfr) - .5) * hr * .2 * step(.45, hh(floor(vp.y*40.) + hfr*.7));   /* the halo itself glitches more */
+    float hs = hr*(.06 + .08*step(.6, hh(hb*.7 + hfr*1.3)));
+    float rr = length((vp + vec2(hj, 0.) - hc - vec2(hs, 0.))*vec2(1., 1.08)), rg = length((vp + vec2(hj, 0.) - hc)*vec2(1., 1.08)), rb = length((vp + vec2(hj, 0.) - hc + vec2(hs, 0.))*vec2(1., 1.08));
     float w = hr*.07, R0 = hr*1.45, up = smoothstep(hc.y - hr*.7, hc.y - hr*.35, vp.y);
     vec3 ring = vec3(exp(-pow((rr - R0)/w, 2.)), exp(-pow((rg - R0)/w, 2.)), exp(-pow((rb - R0)/w, 2.))) * up;
     ring += vec3(1., .85, .5) * exp(-pow((rg - R0)/(w*2.2), 2.)) * .14 * up * smoothstep(R0*.82, R0*.95, rg);   // a soft glow, kept off his hair
