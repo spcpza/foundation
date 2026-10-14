@@ -11,21 +11,48 @@ m = np.clip((yy - 1560) / 90., 0, 1)                                       # eve
 m = np.maximum(m, np.clip((yy - 1430) / 90., 0, 1) * np.clip((xx - 1000) / 120., 0, 1))   # and the ground beneath God
 m *= 1 - np.asarray(fig.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.GaussianBlur(6)), np.float32) / 255
 mask = Image.fromarray((m * 255).astype(np.uint8))
-# start from the current ground, blurred and quieted: keep its light, lose its storybook details
-base = img.filter(ImageFilter.GaussianBlur(28))
-bn = np.asarray(base, np.float32); l = bn.mean(2, keepdims=True); bn = l + (bn - l) * .55
-bn = bn * np.array([1.0, .96, .86]) 
-init = Image.composite(Image.fromarray(np.clip(bn, 0, 255).astype(np.uint8)), img, mask)
-P = ("Michelangelo, Sistine Chapel ceiling fresco: the bare primordial earth on the day of creation, sculptural sweeping slopes of "
-     "ochre and umber earth, grey-green rock, a few sparse dark tufts, a pale misty plain stretching to soft distant hills, "
-     "monumental and quiet, muted earthy fresco palette, chalky buon fresco texture, masterpiece")
-N = ("flowers, roses, garden, path, road, trees, forest, bushes, houses, village, people, figure, animal, bright colours, saturated, "
-     "storybook, children's book, cartoon, illustration, fantasy, 3d render, photo, text, frame, border")
+# a painter's layout sketch: distant blue mountains under God, a pale receding plain, Adam's earthen hill sweeping
+# down on the left, dark earth and rocks in front
+rng = np.random.default_rng(seed)
+def noise(sc):
+    n = rng.random((H // sc + 2, W // sc + 2)).astype(np.float32)
+    return np.asarray(Image.fromarray((n * 255).astype(np.uint8)).resize((W, H), Image.BICUBIC), np.float32) / 255
+n1, n2 = noise(40), noise(9)
+sk = np.zeros((H, W, 3), np.float32)
+hz = 1660 + 25 * np.sin(xx / W * 5 + 1)                                       # the horizon
+mt = hz - 70 * (.5 + .5 * np.sin(xx / W * 7 + 2)) * (.6 + .4 * n1)           # mountain ridges
+sky = np.asarray(img, np.float32)
+sk[:] = sky
+mount = (yy > mt) & (yy <= hz)
+sk[mount] = (np.array([128, 146, 172]) * (.9 + .2 * n1[..., None]))[mount]
+t = np.clip((yy - hz) / (H - hz), 0, 1)[..., None]
+plain = np.array([182, 172, 132]) * (1 - t) + np.array([128, 118, 84]) * t
+sk = np.where((yy > hz)[..., None], plain * (.85 + .3 * n1[..., None]) * (.94 + .12 * n2[..., None]), sk)
+hill = yy > 1560 + (xx * .78)                                                 # Adam's hill sweeping down to the right
+hl = np.array([104, 96, 60]) * (.8 + .4 * n1[..., None]) * (.9 + .2 * n2[..., None])
+edge = np.clip(1 - np.abs(yy - (1560 + xx * .78)) / 30., 0, 1)[..., None]
+sk = np.where(hill[..., None], hl + edge * 40, sk)
+fg = yy > 2650 + 60 * np.sin(xx / W * 4)
+sk = np.where(fg[..., None], np.array([78, 64, 44]) * (.8 + .4 * n1[..., None]) * (.9 + .2 * n2[..., None]), sk)
+for _ in range(9):                                                          # rocks
+    cx, cy, rr = rng.uniform(0, W), rng.uniform(2300, H), rng.uniform(60, 180)
+    rock = ((xx - cx) / (rr * 1.5)) ** 2 + ((yy - cy) / rr) ** 2 < 1
+    shade = np.clip((yy - (cy - rr)) / (2 * rr), 0, 1)[..., None]
+    sk = np.where(rock[..., None], np.array([150, 140, 118]) * (1.1 - .6 * shade) * (.9 + .2 * n2[..., None]), sk)
+sk = np.asarray(Image.fromarray(np.clip(sk, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(5)), np.float32)
+init = Image.composite(Image.fromarray(sk.astype(np.uint8)), img, mask)
+init.resize((486, 802)).save(out.replace('.png', '-sketch.jpg'), quality=85)
+P = ("Italian Renaissance fresco landscape: bare earthen hills of ochre and umber, grey-green grass, weathered rocky outcrops, "
+     "a pale misty plain receding to soft blue distant mountains, quiet and monumental, muted earthy palette, chalky fresco texture, "
+     "fine painterly detail, masterpiece")
+N = ("body, nude, muscles, torso, limbs, face, people, figure, animal, flowers, roses, garden, path, road, trees, forest, houses, "
+     "village, bright colours, saturated, storybook, children's book, cartoon, illustration, fantasy, 3d render, photo, text, frame, "
+     "border, blurry, mud, smear")
 pipe = StableDiffusionXLInpaintPipeline.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to("mps")
 pipe.enable_attention_slicing(); pipe.vae.enable_tiling()
 gw, gh = 832, round(832 * H / W / 8) * 8
 r = pipe(prompt=P, negative_prompt=N, image=init.resize((gw, gh), Image.LANCZOS), mask_image=mask.resize((gw, gh), Image.LANCZOS),
-         width=gw, height=gh, num_inference_steps=40, guidance_scale=7.5, strength=.9, generator=torch.Generator("cpu").manual_seed(seed)).images[0]
+         width=gw, height=gh, num_inference_steps=40, guidance_scale=7.5, strength=.72, generator=torch.Generator("cpu").manual_seed(seed)).images[0]
 g1 = np.asarray(r.resize((W, H), Image.LANCZOS), np.float32)
 mm = (m)[..., None]
 step = np.asarray(img, np.float32) * (1 - mm) + g1 * mm
