@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1791967747').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967747`)))
+else fetch('/img/scene.json?v=1791967953').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura'].map(n => load(`/img/${n}.webp?v=1791967953`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -268,7 +268,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float segx = p.x*2.6 + hh(band3 + fr2)*3.;
     float sid = floor(segx), fx = fract(segx);
     float key = band3*7.1 + sid*3.3 + fr2*13. + seed;
-    float tear = step(.78 - .2*amt, hh(key*2.3 + floor(T*6. + seed)*1.1));
+    float tear = step(.78 - .2*amt, hh(key*2.3 + floor(T*6. + seed)*1.1)) * step(.8, amt);   /* no torn pieces in a subtle glitch */
     float rowf = fract(p.y*7. + hh(fr2 + 4.)*5.);
     float rag = .07*(vn(vec2(p.y*70., key*3.7)) - .5) + .035*(vn(vec2(p.y*260., key)) - .5) + .05*(vn(vec2(p.x*60., key*1.3)) - .5);   /* torn paper, not perforations */
     float xs = smoothstep(.0, .06, fx + rag) * smoothstep(.0, .06, (.6 + .35*hh(key*7.)) - fx + rag)
@@ -285,9 +285,10 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float wN = 1. - m, wD = m*(1. - m2), wS = m2;
     float burst = .6 + .4*smoothstep(.3, .7, hh(floor(T*2.4)));
     vec3 col = vec3(0.); float a = 0.;
-    // night: the whole storm glitches, hardest at God's light
-    float mn = .22 + .5*smoothstep(.6, .05, length(vp - GL));
-    if (wN > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, 1.1, 1.); float g_ = wN*max(mn*GA, GT); col += c*g_; a += g_; }
+    // night: only a hint — a faint flicker in God's light, now and then, before heaven breaks through on the next pages
+    float pulse = smoothstep(.62, .78, hh(floor(T*.9))) * (.6 + .4*hh(floor(T*7.)));
+    float mn = smoothstep(.3, .03, length(vp - GL)) * pulse;
+    if (wN*mn > .01) { vec3 c = glitch(TN, TD, FD_, TL, FL_, RN, vp, .45, 1.); float g_ = wN*mn*GA*.55; col += c*g_; a += g_; }
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
