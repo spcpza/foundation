@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1792032108').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792032108`)))
+else fetch('/img/scene.json?v=1792044236').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792044236`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -321,14 +321,8 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     ring *= 1. - cm;
     float hv = wS * clamp(max(max(ring.r, ring.g), ring.b), 0., 1.) * (.75 + .25*hh(hb*.3 + hfr));
     if (hv > .01) { col += vec3(1., .9, .62)*ring*2.4*wS + vec3(.2,.1,0.)*ring.r; a += hv; }
-    // the nervous system: threads of gold light from God's brain-shaped mantle, with pulses travelling down them
-    vec4 nv = texture(TV, du);
-    float npl = 0.;
-    for (int i = 0; i < 3; i++) { float ph = fract(T*.22 + float(i)/3.); npl += exp(-pow((du.y - mix(.48, 1.05, ph))/.035, 2.)); }
-    float nl = wD * (nv.r*(.55 + .9*npl) + nv.g*(.18 + .45*npl));
-    if (nl > .01) { vec3 nc = mix(vec3(1., .8, .48), vec3(1., .98, .9), nv.r); col += nc*nl*1.6; a += nl; }
     if (a < .01) discard;
-    o = vec4(col/a, clamp(a*1.35, 0., 1.) * max(burst, step(.01, nl)));
+    o = vec4(col/a, clamp(a*1.35, 0., 1.) * burst);
   }`;
 
   function prog(vs, fs) {
