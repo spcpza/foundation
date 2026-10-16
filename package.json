@@ -1,0 +1,3 @@
+{ "name": "solichin-org", "private": true, "type": "module",
+  "scripts": { "serve": "python3 -m http.server 8787 -d public", "shots": "node tools/shots.mjs" },
+  "devDependencies": { "puppeteer": "^23.0.0" } }
