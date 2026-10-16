@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1792142939').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792142939`)))
+else fetch('/img/scene.json?v=1792143590').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792143590`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
@@ -257,6 +257,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
   }
   float GA, GT;   // how much of this pixel is torn; GT: how much is a strip of another painting
   float TS = 1.;  // glitch clock speed (the Last Supper runs it slow)
+  float TW = 1.;  // where torn strips may appear (the day keeps them close to God, so no strip shows a straight edge)
   vec3 glitch(sampler2D Tx, sampler2D Oa, vec2 fa, sampler2D Ob, vec2 fb, vec4 R, vec2 p, float amt, float seed){
     // torn slices that slide, a rolling wave, a colour split, smears; and some slices are torn from the other paintings
     float fr = floor(T*14.*TS + seed), fr2 = floor(T*5.*TS + seed);
@@ -275,7 +276,7 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     float segx = p.x*2.6 + hh(band3 + fr2)*3.;
     float sid = floor(segx), fx = fract(segx);
     float key = band3*7.1 + sid*3.3 + fr2*13. + seed;
-    float tear = step(.78 - .2*amt, hh(key*2.3 + floor(T*6. + seed)*1.1)) * step(.8, amt);   /* no torn pieces in a subtle glitch */
+    float tear = step(.78 - .2*amt, hh(key*2.3 + floor(T*6. + seed)*1.1)) * step(.8, amt) * TW;   /* no torn pieces in a subtle glitch */
     float rowf = fract(p.y*7. + hh(fr2 + 4.)*5.);
     float rag = .07*(vn(vec2(p.y*70., key*3.7)) - .5) + .035*(vn(vec2(p.y*260., key)) - .5) + .05*(vn(vec2(p.x*60., key*1.3)) - .5);   /* torn paper, not perforations */
     float xs = smoothstep(.0, .06, fx + rag) * smoothstep(.0, .06, (.6 + .35*hh(key*7.)) - fx + rag)
@@ -299,7 +300,13 @@ function paint(gl, [nightImg, nightFlow, dayImg, dayFlow, supImg, supFlow, riftI
     // day: the rift around God
     vec2 du = clamp(vec2((vp.x - RD.x)/RD.z, 1. - (vp.y - RD.y)/RD.w), 0., 1.);
     float md = texture(TG, du).r;
-    if (wD*md > .01) { vec3 c = glitch(TD, TN, FN_, TL, FL_, RD, vp, 1.3, 7.); float g_ = wD*md*GA; col += c*g_; a += g_; }
+    /* a rift, not a box: the strength falls off fast away from God's body, its edge torn by noise, and the
+       strips torn from the other paintings live only nearest him, inside that ragged edge */
+    float rag = .75 + .5*vn(vp*vec2(9., 23.)) + .25*vn(vp*vec2(31., 70.)) - .25;
+    float mr = smoothstep(.08, .95, md*rag);
+    TW = smoothstep(.6, .92, md*rag);
+    if (wD*mr > .01) { vec3 c = glitch(TD, TN, FN_, TL, FL_, RD, vp, 1.3, 7.); float g_ = wD*mr*GA; col += c*g_; a += g_; }
+    TW = 1.;
     // the Last Supper: the air breaking around Christ
     vec2 su = clamp(vec2((vp.x - RL.x)/RL.z, 1. - (vp.y - RL.y)/RL.w), 0., 1.);
     vec4 au = texture(TA, su); float ms = clamp(au.r*1.5, 0., 1.); float cm = smoothstep(.25, .65, au.g);   /* cm: Christ himself */
