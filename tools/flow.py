@@ -53,6 +53,8 @@ while q:
         ny, nx = y + dy, x + dx
         if 0 <= ny < H and 0 <= nx < Wd and cand[ny, nx] and not bgm[ny, nx]: bgm[ny, nx] = True; q.append((ny, nx))
 plaster = np.clip(blur(bgm.astype(np.float32), 2.0) * 1.3 - .15, 0, 1)
+import os
+if os.environ.get('NOPLASTER'): plaster *= 0          # a picture with no bare plaster left (clouds are not plaster)
 print('plaster', round(float(plaster.mean()), 2))
 # B: coherence in the upper half, plaster in the lower (B < .5 means plaster, by how much)
 B = np.where(plaster > .5, .5 - .5 * plaster, .5 + .5 * coh)
