@@ -60,10 +60,15 @@ main{position:relative;z-index:2}
 @media (min-width:900px){.verse figure{max-width:46rem}}
 .verse blockquote{margin:0 0 28px;font-family:var(--serif);font-style:italic;font-size:clamp(1.6rem,4.8vw,3.3rem);line-height:1.12;letter-spacing:-.01em}
 figcaption{color:var(--gold);margin:0}
+.cite{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:22px 0 0}
+.close .cite{margin:0 0 5vh}
+.sc{font-variant:small-caps;letter-spacing:.04em}
 
 .close .copy{align-items:center;text-align:center}
-.lede.closing{max-width:none;margin:0 auto 5vh}
+.lede.closing{max-width:none;margin:0 auto 22px}
 .lede br{display:block}
+.lede br.m{display:none}
+@media (max-width:899px){ .lede br.m{display:block} }
 .coda{margin:0;font-family:var(--roman);font-size:clamp(.85rem,2.8vw,1.5rem);letter-spacing:.42em;text-transform:uppercase;color:var(--fg);padding-left:.42em}
 .wordmark{margin:0 0 4vh;font-family:var(--roman);font-weight:400;font-size:clamp(2.6rem,13vw,11rem);line-height:.9;letter-spacing:.08em;text-shadow:none;
   background:linear-gradient(180deg,#fffaf1 0%,#f7f1e6 60%,#d9cdb9 100%);-webkit-background-clip:text;background-clip:text;color:transparent}

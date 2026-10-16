@@ -45,8 +45,8 @@ const load = src => new Promise((res, rej) => { const i = new Image(); i.onload 
 // each picture is one painting grown past Michelangelo's frame; wide and tall screens are cut from it around its focus
 const shape = innerWidth / innerHeight >= .8 ? 'wide' : 'tall';
 if (!gl) { root.classList.add('no-gl'); ready(); }
-else fetch('/img/scene.json?v=1792144147').then(r => r.json()).then(meta =>
-  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792144147`)))
+else fetch('/img/scene.json?v=1792144480').then(r => r.json()).then(meta =>
+  Promise.all([shape === 'wide' ? 'night-wide' : 'night', shape === 'wide' ? 'night-wide-flow' : 'night-flow', shape === 'wide' ? 'day' : 'day-tall', shape === 'wide' ? 'day-flow' : 'day-tall-flow', shape === 'wide' ? 'supper' : 'supper-tall', shape === 'wide' ? 'supper-flow' : 'supper-tall-flow', shape === 'wide' ? 'day-rift' : 'day-tall-rift', shape === 'wide' ? 'supper-aura' : 'supper-tall-aura', shape === 'wide' ? 'day-nerves' : 'day-tall-nerves'].map(n => load(`/img/${n}.webp?v=1792144480`)))
     .then(ims => paint(gl, ims, meta[shape])))
   .catch(e => { console.error(String(e && e.message || e)); root.classList.add('no-gl'); ready(); });   // log, then fall back
 
