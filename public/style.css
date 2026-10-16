@@ -65,7 +65,7 @@ figcaption{color:var(--gold);margin:0}
 .sc{font-variant:small-caps;letter-spacing:.04em}
 
 .close .copy{align-items:center;text-align:center}
-.lede.closing{max-width:none;margin:0 auto 22px}
+.lede.closing{max-width:none;margin:0 auto 5vh}
 .lede br{display:block}
 .lede br.m{display:none}
 @media (max-width:899px){ .lede br.m{display:block} }
